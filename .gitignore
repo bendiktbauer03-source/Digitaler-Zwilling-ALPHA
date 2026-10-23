@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+# Echte Kundenzwillinge nie ins (öffentliche) Repository:
+private/
+*.zwilling.json
+*Digitaler_Zwilling*.html
+*.tsbuildinfo
