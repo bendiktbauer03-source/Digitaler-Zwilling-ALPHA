@@ -46,7 +46,7 @@ function Waldweg({ b, pro }: { b: Bestand; pro: boolean }) {
             <>
               <div className="zeitreise">
                 {reihe.map((s, k) => s.bild && <img key={k} src={s.bild} alt={`${s.titel} (${s.jahr})`} style={{ opacity: k === i ? 1 : 0 }} />)}
-                {!stufe?.bild && <div className="leer" style={{ color: 'var(--warm)', paddingTop: 80 }}>Keine Visualisierung für diese Stufe.</div>}
+                {!stufe?.bild && <div className="leer" style={{ color: 'var(--grund)', paddingTop: 80 }}>Keine Visualisierung für diese Stufe.</div>}
                 <span className="marke-v">VISUALISIERUNG DES SIMULATIONSSTANDS · KEIN FOTO</span>
                 <div className="text"><span className="mono" style={{ fontSize: 12 }}>{stufe?.jahr}</span><br /><b>{stufe?.titel}</b><p style={{ fontSize: 14, opacity: .85, marginTop: 4 }}>{stufe?.text}</p></div>
               </div>
@@ -148,9 +148,9 @@ function Kulturrechner({ b }: { b: Bestand }) {
             <div className="kopfzeile"><h2>{r.titel}</h2></div>
             {r.gesperrt && <div className="hinweis warn">{r.gesperrt}</div>}
             <div className="drei" style={{ marginTop: 6 }}>
-              <div><span className="unterzeile">Investition Jahr 1</span><div className="serif" style={{ fontSize: 26 }}>{euro(r.investition)}</div></div>
-              <div><span className="unterzeile">Förderung</span><div className="serif gut" style={{ fontSize: 26 }}>{r.foerderung.betrag > 0 ? euro(r.foerderung.betrag) : '—'}</div><span className="unterzeile">{FOERDERSTATUS_TEXT[r.foerderung.status]}</span></div>
-              <div><span className="unterzeile">Pflanzen</span><div className="serif" style={{ fontSize: 26 }}>{r.pflanzen ? zahl(r.pflanzen) : '—'}</div><span className="unterzeile">{r.pflanzen ? 'Stück' : 'aus Naturverjüngung'}</span></div>
+              <div><span className="unterzeile">Investition Jahr 1</span><div className="zahl" style={{ fontSize: 28, marginTop: 4 }}>{euro(r.investition)}</div></div>
+              <div><span className="unterzeile">Förderung</span><div className="zahl gut" style={{ fontSize: 28, marginTop: 4 }}>{r.foerderung.betrag > 0 ? euro(r.foerderung.betrag) : '—'}</div><span className="unterzeile">{FOERDERSTATUS_TEXT[r.foerderung.status]}</span></div>
+              <div><span className="unterzeile">Pflanzen</span><div className="zahl" style={{ fontSize: 28, marginTop: 4 }}>{r.pflanzen ? zahl(r.pflanzen) : '—'}</div><span className="unterzeile">{r.pflanzen ? 'Stück' : 'aus Naturverjüngung'}</span></div>
             </div>
             <h3 style={{ marginTop: 18 }}>Ausfall – drei Szenarien statt einer Scheinzahl</h3>
             <div className="balken breit">
@@ -174,7 +174,7 @@ function Kulturrechner({ b }: { b: Bestand }) {
           </div>
 
           <div className="feld">
-            <div className="kopfzeile"><h3 style={{ margin: 0 }}>Ihr Wald in {jahr} Jahren</h3><span className="beispiel" style={{ color: 'var(--slate)', borderColor: 'var(--linie)' }}>ABSTRAKT · KEINE SIMULATION</span></div>
+            <div className="kopfzeile"><h3 style={{ margin: 0 }}>Ihr Wald in {jahr} Jahren</h3><span className="beispiel" style={{ color: 'var(--grau)', borderColor: 'var(--linie)' }}>ABSTRAKT · KEINE SIMULATION</span></div>
             <Zukunftsbild mischung={r.strategie === 'naturverjuengung' ? (b.verjuengungMoeglich ?? []).map((t) => ({ art: artgruppeAusText(t), anteil: 1, stkProHa: 0 })) : mischung} jahr={jahr} ausfall={r.ausfall[1]} />
             <Regler label="Zeithorizont" wert={jahr} anzeige={`${new Date().getFullYear() + jahr}`} min={0} max={40} onChange={setJahr} />
           </div>

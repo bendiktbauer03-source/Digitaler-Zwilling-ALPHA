@@ -10,6 +10,7 @@ import { kulturRechnen, type KulturEingabe } from './kultur';
 import { statusLabel, statusVon } from './messwert';
 import { allokation, waldVermoegen, wertverlauf, wertzuwachsJahr } from './vermoegen';
 import { waldAusAngaben } from './angaben';
+import { ersteErkenntnis, frageRouten, startzustand, waldaufnahme, waldjahr, wertAnzeige } from './startseite';
 import { grundflaecheAmPunkt, wzpAlsMesswert, wzpAuswerten } from './wzp';
 import { zwillingImportieren, zwillingTextLesen } from './zwilling-import';
 
@@ -273,5 +274,44 @@ describe('Wald aus einfachen Angaben', () => {
     expect(ids).toContain('messen');
     expect(liste.find((e) => e.art === 'schaden')!.statusText).toBe('Von Ihnen gemeldet');
     for (const e of liste.filter((x) => x.art === 'holzernte')) expect(e.optionen[e.empfohlen].id).toBe('messen');
+  });
+});
+
+describe('Startseite', () => {
+  const eigen = waldAusAngaben({ name: 'Hirschberg', bundesland: 'Bayern', flaechen: [{ name: 'Hang', ha: 2.4, art: 'fichte', alter: 'alt', zustand: 'gesund' }] }, HEUTE);
+  it('erkennt Neueinsteiger, aktive Besitzer und Betriebe', () => {
+    expect(startzustand(eigen)).toBe('neu');
+    expect(startzustand(BEISPIELWALD)).toBe('aktiv');
+    expect(startzustand(BEISPIELWALD, ['betrieb'])).toBe('betrieb');
+  });
+  it('zeigt einen Wert nur, wenn er begründbar ist', () => {
+    expect(wertAnzeige(eigen, A)).toBeNull();
+    const w = wertAnzeige(BEISPIELWALD, A)!;
+    expect(w.lo).toBeLessThan(w.mitte);
+    expect(w.hi).toBeGreaterThan(w.mitte);
+  });
+  it('misst die Vollständigkeit der Waldaufnahme in fünf Bereichen', () => {
+    const neu = waldaufnahme(eigen);
+    const aktiv = waldaufnahme(BEISPIELWALD);
+    expect(neu.bereiche).toHaveLength(5);
+    expect(neu.anteil).toBeLessThan(aktiv.anteil);
+    expect(neu.bereiche.find((b) => b.id === 'vorrat')!.status).toBe('offen');
+  });
+  it('baut ein kurzes Waldjahr', () => {
+    const ents = entscheidungenAbleiten({ wald: BEISPIELWALD, annahmen: A, heute: HEUTE });
+    const j = waldjahr(BEISPIELWALD, LEERE_FORTSCHREIBUNG, ents, HEUTE);
+    expect(j.length).toBeGreaterThan(0);
+    expect(j.length).toBeLessThanOrEqual(4);
+  });
+  it('führt Fragen zum passenden Ablauf', () => {
+    expect(frageRouten('Lohnt sich eine Durchforstung?').ziel).toBe('#/ernte');
+    expect(frageRouten('Was pflanze ich auf der Kahlfläche?').ziel).toBe('#/zukunft');
+    expect(frageRouten('Wie genau ist mein Vorrat?').ziel).toBe('#/messen');
+  });
+  it('nennt eine erste Erkenntnis aus der Standorteignung, ohne Geldwert', () => {
+    const e = ersteErkenntnis(BEISPIELWALD)!;
+    expect(e.satz).toMatch(/enger/);
+    expect(e.satz).not.toMatch(/€/);
+    expect(ersteErkenntnis(eigen)!.grundlage).toMatch(/Allgemeine/);
   });
 });

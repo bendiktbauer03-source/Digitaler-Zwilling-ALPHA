@@ -43,7 +43,7 @@ export function Daten() {
             <div className={`ablage ${ueber ? 'ueber' : ''}`} onDragOver={(e) => { e.preventDefault(); setUeber(true); }} onDragLeave={() => setUeber(false)} onDrop={(e) => { e.preventDefault(); setUeber(false); const f = e.dataTransfer.files[0]; if (f) laden(f); }}>
               <Icon n="upload" gross />
               <p style={{ marginTop: 8 }}>Zwillings-Datei hierher ziehen<br /><span className="unterzeile">HTML-Export oder JSON der Waldgrafen-Erfassung</span></p>
-              <button className="knopf gruen" style={{ maxWidth: 280, margin: '14px auto 0' }} onClick={() => input.current?.click()} disabled={laedt}>{laedt ? 'Wird gelesen …' : 'Datei auswählen'}</button>
+              <button className="knopf" style={{ maxWidth: 280, margin: '14px auto 0' }} onClick={() => input.current?.click()} disabled={laedt}>{laedt ? 'Wird gelesen …' : 'Datei auswählen'}</button>
               <input ref={input} type="file" accept=".html,.htm,.json,application/json,text/html" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) laden(f); e.target.value = ''; }} />
             </div>
             {fehler && <div className="hinweis warn" style={{ marginTop: 10 }}>{fehler}</div>}

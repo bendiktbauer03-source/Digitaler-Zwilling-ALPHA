@@ -80,9 +80,9 @@ export function Ernte({ param }: { param?: string }) {
             <div className={`gross ${r.db < 0 ? 'schlecht' : ''}`}>{euro(r.db)}</div>
             <p className="unterzeile">Spanne {euroSpanne(...r.dbSpanne)} bei ± 12 % Preis und ± 10 % Kosten · {euro(r.dbProHa)} je ha · {zahl(r.dbJeEfm, 1)} € je Efm</p>
             <div className="drei" style={{ marginTop: 18 }}>
-              <div><span className="unterzeile">Holzerlös</span><div className="serif" style={{ fontSize: 26 }}>{euro(r.erloes)}</div></div>
-              <div><span className="unterzeile">Ernte und Rückung</span><div className="serif" style={{ fontSize: 26 }}>{euro(r.kosten)}</div><span className="unterzeile">{zahl(r.kostenJeEfm, 1)} €/Efm</span></div>
-              <div><span className="unterzeile">Holzmenge</span><div className="serif" style={{ fontSize: 26 }}>{zahl(r.efm)} Efm</div><span className="unterzeile">{zahl(r.stueckmasseEfm, 2)} Efm je Baum</span></div>
+              <div><span className="unterzeile">Holzerlös</span><div className="zahl" style={{ fontSize: 28, marginTop: 4 }}>{euro(r.erloes)}</div></div>
+              <div><span className="unterzeile">Ernte und Rückung</span><div className="zahl" style={{ fontSize: 28, marginTop: 4 }}>{euro(r.kosten)}</div><span className="unterzeile">{zahl(r.kostenJeEfm, 1)} €/Efm</span></div>
+              <div><span className="unterzeile">Holzmenge</span><div className="zahl" style={{ fontSize: 28, marginTop: 4 }}>{zahl(r.efm)} Efm</div><span className="unterzeile">{zahl(r.stueckmasseEfm, 2)} Efm je Baum</span></div>
             </div>
             {status !== 'bestaetigt' && <div className={`hinweis ${status === 'pruefen' ? 'warn' : ''}`} style={{ marginTop: 16 }}>Der Vorrat ist {statusLabel(b.vorrat).toLowerCase()}. Für einen Verkauf vorher messen: <a href={`#/messen/${b.id}`} style={{ textDecoration: 'underline' }}>Winkelzählprobe starten</a> – aus ± {Math.round(genauigkeit(b.vorrat) ?? 30)} % werden etwa ± 9 %.</div>}
             {r.hinweise.map((h) => <div key={h} className="hinweis" style={{ marginTop: 10 }}>{h}</div>)}
@@ -120,7 +120,7 @@ export function Ernte({ param }: { param?: string }) {
 
       <dialog ref={dialog} aria-label="Angebotsanfrage">
         <span className="klein" style={{ color: 'var(--amber)' }}>Unternehmeranfrage</span>
-        <h2 className="serif" style={{ fontSize: 28, marginTop: 6 }}>Angebot für {b.label}</h2>
+        <h2 className="titel2" style={{ marginTop: 6 }}>Angebot für {b.label}</h2>
         <p className="unterzeile">Diese Anfrage enthält alles, was ein Unternehmer für ein belastbares Angebot braucht. Die Waldgrafen leiten sie an passende Betriebe weiter.</p>
         <pre>{anfrage}</pre>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

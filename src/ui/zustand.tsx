@@ -5,6 +5,7 @@ import { entscheidungenAbleiten, type Entscheidung, type Option } from '../engin
 import { heuteIso } from '../engine/format';
 import { anwenden, LEERE_FORTSCHREIBUNG, type Fortschreibung, type Inventur, type Massnahme, type MassnahmeStatus } from '../engine/fortschreibung';
 import type { Wald } from '../engine/modell';
+import type { Ziel } from '../engine/startseite';
 import { lesen, schreiben, zwillingEntfernen, zwillingLaden, zwillingSpeichern } from './speicher';
 
 export type Modus = 'privat' | 'pro';
@@ -17,6 +18,12 @@ interface Zustand {
   annahmen: Annahmen;
   modus: Modus;
   bereit: boolean;
+  /** Was der Eigentümer erreichen will – steuert die Übersicht */
+  ziele: Ziel[];
+  setZiele: (z: Ziel[]) => void;
+  /** Ob der Einstieg (Wald finden → Ziel → Porträt) schon durchlaufen wurde */
+  startGesehen: boolean;
+  setStartGesehen: (b: boolean) => void;
   setModus: (m: Modus) => void;
   setAnnahmen: (a: Annahmen) => void;
   zwillingSetzen: (w: Wald) => Promise<void>;
@@ -46,12 +53,15 @@ export function ZustandProvider({ children, onToast }: { children: ReactNode; on
   const [modus, setModusS] = useState<Modus>(() => lesen('wg-modus', 'privat'));
   const [annahmen, setAnnahmenS] = useState<Annahmen>(() => ({ ...STANDARD_ANNAHMEN, ...lesen<Partial<Annahmen>>('wg-annahmen', {}), version: STANDARD_ANNAHMEN.version }));
   const [fortschreibung, setFS] = useState<Fortschreibung>(LEERE_FORTSCHREIBUNG);
+  const [ziele, setZieleS] = useState<Ziel[]>([]);
+  const [startGesehen, setStartGesehenS] = useState<boolean>(() => lesen('wg-start-gesehen', false));
 
   useEffect(() => {
     zwillingLaden<Wald>().then((w) => {
       const aktiv = w?.bestaende?.length ? w : BEISPIELWALD;
       setBasis(aktiv);
       setFS(lesen(`wg-fs-${aktiv.id}`, LEERE_FORTSCHREIBUNG));
+      setZieleS(lesen(`wg-ziele-${aktiv.id}`, []));
       setBereit(true);
     });
   }, []);
@@ -65,8 +75,10 @@ export function ZustandProvider({ children, onToast }: { children: ReactNode; on
   const entscheidungen = useMemo(() => entscheidungenAbleiten({ wald, annahmen }), [wald, annahmen]);
 
   const z: Zustand = {
-    basis, wald, entscheidungen, fortschreibung, annahmen, modus, bereit,
+    basis, wald, entscheidungen, fortschreibung, annahmen, modus, bereit, ziele, startGesehen,
     toast: onToast,
+    setZiele: (zs) => { setZieleS(zs); schreiben(`wg-ziele-${basis.id}`, zs); },
+    setStartGesehen: (b) => { setStartGesehenS(b); schreiben('wg-start-gesehen', b); },
     setModus: (m) => { setModusS(m); schreiben('wg-modus', m); },
     setAnnahmen: (a) => {
       setAnnahmenS(a);
@@ -77,11 +89,13 @@ export function ZustandProvider({ children, onToast }: { children: ReactNode; on
       await zwillingSpeichern(w);
       setBasis(w);
       setFS(lesen(`wg-fs-${w.id}`, LEERE_FORTSCHREIBUNG));
+      setZieleS(lesen(`wg-ziele-${w.id}`, []));
     },
     beispielLaden: async () => {
       await zwillingEntfernen();
       setBasis(BEISPIELWALD);
       setFS(lesen(`wg-fs-${BEISPIELWALD.id}`, LEERE_FORTSCHREIBUNG));
+      setZieleS(lesen(`wg-ziele-${BEISPIELWALD.id}`, []));
     },
     beschliessen: (e, o) => {
       const datum = heuteIso();

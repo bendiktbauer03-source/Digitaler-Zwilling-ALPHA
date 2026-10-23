@@ -79,7 +79,7 @@ export function Messen({ param }: { param?: string }) {
                 <span className="nr">P{i + 1}</span>
                 <Zaehler label="Gezählt" wert={p.gezaehlt} onChange={(v) => setP(i, { gezaehlt: v })} />
                 <Zaehler label="Grenzbäume" wert={p.grenzbaeume} onChange={(v) => setP(i, { grenzbaeume: v })} />
-                {punkte.length > 1 ? <button className="rund" style={{ background: 'var(--warm2)', color: 'var(--racing)', boxShadow: 'none' }} onClick={() => setPunkte(punkte.filter((_, j) => j !== i))} aria-label={`Punkt ${i + 1} entfernen`}><Icon n="x" /></button> : <span />}
+                {punkte.length > 1 ? <button className="rund" style={{ background: 'var(--grund)', color: 'var(--racing)', boxShadow: 'none' }} onClick={() => setPunkte(punkte.filter((_, j) => j !== i))} aria-label={`Punkt ${i + 1} entfernen`}><Icon n="x" /></button> : <span />}
               </div>
             ))}
             <Regler label="Hangneigung am Punkt (ohne automatische Korrektur)" wert={punkte.at(-1)!.hangGrad ?? 0} anzeige={`${punkte.at(-1)!.hangGrad ?? 0}°`} min={0} max={40} onChange={(v) => setP(punkte.length - 1, { hangGrad: v })} />
@@ -100,7 +100,7 @@ export function Messen({ param }: { param?: string }) {
                 </div>
                 <div className={`hinweis ${r.punkte < 3 ? 'warn' : ''}`} style={{ marginTop: 14 }}>{r.hinweis}</div>
                 {Math.abs(r.vorratVfmHa - b.vorrat.wert) / Math.max(1, b.vorrat.wert) > 0.2 && <div className="hinweis warn" style={{ marginTop: 10 }}>Die Messung weicht um {pct((Math.abs(r.vorratVfmHa - b.vorrat.wert) / b.vorrat.wert) * 100)} von der Schätzung ab. Genau dafür misst man.</div>}
-                <button className="knopf gruen" onClick={uebernehmen}>In den Zwilling übernehmen <Icon n="check" /></button>
+                <button className="knopf" onClick={uebernehmen}>In den Zwilling übernehmen <Icon n="check" /></button>
                 <p className="unterzeile" style={{ marginTop: 10 }}>G = k · n (Grenzbäume halb, durch cos α am Hang) · Vorrat = G · Höhe · Formzahl. Höhe und Formzahl gehen mit ± 6 % in die Spanne ein.</p>
               </>
             )}
