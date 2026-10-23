@@ -3,7 +3,6 @@ import { datumKurz, ha, pct, rund, zahl } from '../../engine/format';
 import { spanneVon, statusLabel, statusVon } from '../../engine/messwert';
 import { ART_TEXT, type Bestand as B, type Simulation } from '../../engine/modell';
 import { Icon, Leiste, Status, useOffen } from '../bausteine';
-import { Umrisse } from '../waldkarte';
 import { useZustand } from '../zustand';
 import { ART_FARBE } from './Uebersicht';
 
@@ -46,7 +45,6 @@ export function Bestand({ param }: { param?: string }) {
       <div className={`bestandbild ${foto ? 'foto' : ''}`}>
         <img src={foto?.bild ?? (b.kahlflaeche ? 'bilder/stamm.webp' : 'bilder/kronendach.webp')} alt={foto ? `Ihr Foto aus ${foto.ort}` : ''} />
         {!foto && <span className="schleier" />}
-        {!foto && b.polygon.length > 2 && <Umrisse bestaende={[b]} breite={350} hoehe={220} rand={34} />}
         <span className="hinweis-bild">{foto ? `IHR FOTO · ${datumKurz(foto.datum)}` : wald.quelle === 'beispiel' ? 'STIMMUNGSBILD · BEISPIEL' : 'STIMMUNGSBILD'}</span>
       </div>
 

@@ -4,7 +4,7 @@ import { ART_TEXT, gesamtHa, type Wald } from '../../engine/modell';
 import { AUFNAHME_TEXT, startzustand, waldaufnahme, waldjahr, wertAnzeige } from '../../engine/startseite';
 import { allokation } from '../../engine/vermoegen';
 import { FrageKnopf, Icon, Initialen, Ring, useOffen } from '../bausteine';
-import { farbeVon, Umrisse } from '../waldkarte';
+import { farbeVon } from '../waldkarte';
 import { useZustand } from '../zustand';
 
 export const ART_FARBE: Record<string, string> = {
@@ -12,25 +12,33 @@ export const ART_FARBE: Record<string, string> = {
   buche: '#E8C76A', eiche: '#B8862F', edellaub: '#D6B9AC', bergahorn: '#C79A6B', sonstiges: '#D9D7D0',
 };
 
-/** Liegen die Waldorte weit auseinander, zeigt das Porträt den größten – sonst wären die Umrisse nur Punkte. */
-export function hauptflaechen(wald: Wald) {
-  if (!wald.reviere || wald.reviere.length < 2) return wald.bestaende;
+/** Der größte Waldort – er steht im Porträt für den ganzen Besitz. */
+export function hauptort(wald: Wald) {
+  if (!wald.reviere?.length) return undefined;
   const groesse = (r: string) => wald.bestaende.filter((b) => b.revier === r).reduce((s, b) => s + b.ha, 0);
-  const haupt = [...wald.reviere].sort((a, b) => groesse(b.name) - groesse(a.name))[0];
-  return wald.bestaende.filter((b) => b.revier === haupt.name);
+  return [...wald.reviere].sort((a, b) => groesse(b.name) - groesse(a.name))[0].name;
+}
+
+/**
+ * Ein Bild für einen Waldort: das Foto des Eigentümers, wenn es eins gibt, sonst ein Stimmungsbild.
+ * Keine gezeichneten Umrisse darüber – ohne echtes Luftbild passen sie nicht zum Foto.
+ */
+export function waldbild(wald: Wald, ort?: string, ersatz = 'bilder/hochwald.webp') {
+  const f = wald.fotos?.find((x) => x.bild && (!ort || x.revier === ort)) ?? (ort ? undefined : wald.fotos?.find((x) => x.bild));
+  return f ? { src: f.bild!, hinweis: `IHR FOTO · ${f.ort.toUpperCase()}`, eigen: true } : { src: ersatz, hinweis: wald.quelle === 'beispiel' ? 'BEISPIEL · STIMMUNGSBILD' : 'STIMMUNGSBILD', eigen: false };
 }
 
 /** Das Waldporträt: der eigene Wald als Bild, die Fläche als einzige große Zahl. */
-export function Portraet({ wald, href, hoehe = 440, unter, verdacht }: { wald: Wald; href?: string; hoehe?: number; unter?: string; verdacht?: Set<string> }) {
+export function Portraet({ wald, href, hoehe = 440, unter }: { wald: Wald; href?: string; hoehe?: number; unter?: string }) {
+  const bild = waldbild(wald, hauptort(wald));
   const ort = [wald.betrieb.landkreis && `Landkreis ${wald.betrieb.landkreis}`, wald.betrieb.gemeinde].filter(Boolean)[0] ?? wald.betrieb.bundesland;
   const n = wald.bestaende.length;
   const inhalt = (
     <>
-      <img src="bilder/hochwald.webp" alt="" />
+      <img src={bild.src} alt={bild.eigen ? `Foto aus ${hauptort(wald)}` : ''} />
       <span className="schleier" />
-      <div className="grenzen-box"><Umrisse bestaende={hauptflaechen(wald).filter((b) => b.polygon.length > 2)} breite={350} hoehe={hoehe - 210} rand={16} verdacht={verdacht} /></div>
       <span className="oben">
-        <span className="hinweis-bild">{wald.quelle === 'beispiel' ? 'BEISPIEL' : 'STIMMUNGSBILD'}</span>
+        <span className="hinweis-bild">{bild.hinweis}</span>
       </span>
       <span className="unten">
         <span className="name">{wald.betrieb.langname}</span>
@@ -56,10 +64,8 @@ export function Uebersicht() {
   const wert = wertAnzeige(wald, annahmen);
   const aufnahme = waldaufnahme(wald);
   const jahr = waldjahr(wald, fortschreibung, entscheidungen);
-  const verdacht = new Set(wald.ereignisse.filter((e) => !e.erholt && !e.bestaetigt && e.bestandId).map((e) => e.bestandId!));
   const stehend = wald.bestaende.filter((b) => !b.kahlflaeche).reduce((s, b) => s + b.ha, 0);
   const bestaetigtPct = stehend > 0 ? ((wert?.bestaetigtHa ?? 0) / stehend) * 100 : 0;
-  const mitGrenzen = wald.bestaende.filter((b) => b.polygon.length > 2);
   const alloc = allokation(wald).filter((a) => a.pct >= 1);
 
   const kopf = zustand === 'neu' ? <>Entdecken Sie<br />Ihren Wald.</> : zustand === 'betrieb' ? <>Ihr Waldportfolio.</> : null;
@@ -71,7 +77,7 @@ export function Uebersicht() {
         <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><FrageKnopf /><Initialen /></span>
       </header>
 
-      <Portraet wald={wald} href="#/wald" verdacht={verdacht} hoehe={zustand === 'neu' ? 380 : 440} />
+      <Portraet wald={wald} href="#/wald" hoehe={zustand === 'neu' ? 380 : 440} />
 
       {/* 1 · Heute wichtig – genau ein Hinweis */}
       {wichtig && (zustand !== 'neu' || wichtig.dringlichkeit === 'hoch') ? (
@@ -182,9 +188,9 @@ export function Uebersicht() {
       <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span className="klein">Meinen Wald entdecken</span>
         <div className="karussell">
-          <a href="#/wald" className="k-dunkel">
-            {mitGrenzen.length > 0 ? <div className="mini-karte"><Umrisse bestaende={hauptflaechen(wald).filter((b) => b.polygon.length > 2)} breite={168} hoehe={140} rand={14} farbig={(b) => farbeVon(b, offen, 'baumarten')} /></div> : <Icon n="map" gross />}
-            <span className="bildfuss"><b>Ihre {wald.bestaende.length} {wald.bestaende.length === 1 ? 'Fläche' : 'Flächen'}</b><small>{mitGrenzen.length ? 'auf der Karte' : 'Grenzen folgen mit dem Zwilling'}</small></span>
+          <a href="#/wald" className="k-bild">
+            <img src={waldbild(wald, wald.reviere?.length ? wald.reviere.find((r) => r.name !== hauptort(wald))?.name : undefined, 'bilder/waldweg.webp').src} alt="" />
+            <span className="bildfuss"><b>Ihre {wald.bestaende.length} {wald.bestaende.length === 1 ? 'Fläche' : 'Flächen'}</b><small>{wald.reviere && wald.reviere.length > 1 ? `an ${wald.reviere.length} Waldorten` : 'im Überblick'}</small></span>
           </a>
           <a href={`#/wald/baumarten`} className="k-salbei">
             <span className="allok" aria-hidden="true">{alloc.map((a) => <i key={a.art} style={{ flex: a.pct, background: ART_FARBE[a.art] }} />)}</span>

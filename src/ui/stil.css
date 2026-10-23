@@ -70,7 +70,6 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke
 .portraet{position:relative;display:block;border-radius:32px;overflow:hidden;background:var(--racing);color:var(--karte);min-height:400px;isolation:isolate}
 .portraet>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
 .portraet .schleier{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(13,46,36,.35) 0%,rgba(13,46,36,.05) 30%,rgba(13,46,36,.2) 55%,rgba(13,46,36,.92) 100%)}
-.portraet svg.grenzen{position:absolute;inset:0;width:100%;height:100%}
 .portraet .oben{position:absolute;left:14px;right:14px;top:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .portraet .unten{position:absolute;left:20px;right:20px;bottom:20px;display:flex;flex-direction:column;gap:6px}
 .portraet .name{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;opacity:.88}
@@ -170,13 +169,8 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke
 
 /* Karte (Mein Wald) */
 .kartenbuehne{position:relative;margin:0 -20px;height:min(62vh,560px);background:var(--racing);overflow:hidden}
-.kartenbuehne svg{width:100%;height:100%;display:block}
-.kartenbuehne .ebenen{position:absolute;left:20px;top:14px;display:flex;gap:6px;flex-wrap:wrap;right:20px}
-.kartenbuehne .ebenen button{padding:9px 14px;border-radius:999px;background:rgba(13,46,36,.75);color:var(--karte);box-shadow:0 0 0 1px rgba(246,245,241,.18);font-size:13px;font-weight:600;min-height:40px}
-.kartenbuehne .ebenen button.an{background:var(--karte);color:var(--tinte)}
 .blatt{position:relative;margin:-36px -20px 0;background:var(--karte);border-radius:32px 32px 0 0;padding:12px 20px 24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 -20px 50px rgba(0,0,0,.18)}
 .blatt .griff{align-self:center;width:40px;height:5px;border-radius:3px;background:var(--stein)}
-.bst{cursor:pointer}
 
 /* Werkzeug-Seiten: vorhandene Rechner im neuen Look */
 .feld{background:var(--karte);border-radius:24px;padding:18px 18px 20px;min-width:0;overflow-x:auto}
@@ -259,7 +253,6 @@ select,.eingabe{min-height:52px;border:0;border-radius:14px;padding:0 14px;backg
 .zeitreise .text{position:absolute;left:0;right:0;bottom:0;padding:18px 20px;background:linear-gradient(transparent,rgba(13,46,36,.92));color:var(--karte)}
 .zeitreise .text b{font-family:var(--zahl);font-weight:600;font-size:20px}
 .zeitreise .marke-v{position:absolute;top:12px;left:12px;font-size:10.5px;color:rgba(246,245,241,.85);border:1px dashed rgba(246,245,241,.5);border-radius:6px;padding:3px 7px}
-.waldkarte{width:100%;height:auto;display:block;border-radius:22px;background:var(--racing)}
 .legende{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--grau2);margin-top:10px}
 .legende i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .fehlt{padding:12px 14px;border-radius:14px;background:var(--amber-hell);font-size:13.5px;color:#6B3A04;line-height:1.5}
@@ -269,8 +262,6 @@ select,.eingabe{min-height:52px;border:0;border-radius:14px;padding:0 14px;backg
 
 /* ───── Ergänzungen der umgesetzten App ───── */
 .titel em,.titel2 em{font-style:normal;color:var(--grau2)}
-.portraet .grenzen-box{position:absolute;left:16px;right:16px;top:52px;bottom:158px;z-index:0}
-.portraet .grenzen-box svg.grenzen{position:static;width:100%;height:100%}
 .portraet .flaeche small{font-family:var(--text);font-size:22px;font-weight:600;letter-spacing:0}
 .portraet .entdecken{display:inline-flex;align-items:center;gap:4px;font-weight:600;background:rgba(246,245,241,.16);border-radius:999px;padding:8px 12px}
 .wichtig .satz{font-size:15px;line-height:1.5;color:var(--grau2);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
@@ -284,8 +275,6 @@ select,.eingabe{min-height:52px;border:0;border-radius:14px;padding:0 14px;backg
 .karussell .k-bild::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 40%,rgba(13,46,36,.85))}
 .karussell .k-bild .bildfuss{z-index:1}
 .karussell .k-dunkel .bildfuss small{color:rgba(246,245,241,.8)}
-.mini-karte{position:absolute;inset:0 0 60px 0}
-.mini-karte svg{width:100%;height:100%}
 .allok{display:flex;gap:3px;height:28px;border-radius:8px;overflow:hidden}
 .allok i{display:block;min-width:4px}
 .allok.gross{height:18px;border-radius:9px;margin-top:4px}
@@ -307,10 +296,6 @@ select,.eingabe{min-height:52px;border:0;border-radius:14px;padding:0 14px;backg
 .kartenbuehne{margin:0 -20px}
 .kartenbuehne .kartenkopf{position:absolute;left:16px;right:16px;top:max(14px,env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;gap:10px}
 .kartenbuehne .kartenname{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--karte);text-shadow:0 1px 8px rgba(0,0,0,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kartenbuehne .ebenen{top:auto;bottom:50px;left:16px;right:16px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-.kartenbuehne .ebenen::-webkit-scrollbar{display:none}
-.kartenbuehne .ebenen button{flex:none}
-.kartenbuehne .waldkarte{border-radius:0;height:100%}
 .blatt .legende{margin-top:0}
 .reihe.gewaehlt{background:var(--grund);border-radius:14px;padding-left:10px;padding-right:10px}
 .blatt .reihe{border-bottom-color:var(--linie)}
@@ -319,7 +304,6 @@ select,.eingabe{min-height:52px;border:0;border-radius:14px;padding:0 14px;backg
 .bestandbild{position:relative;height:220px;border-radius:28px;overflow:hidden;background:var(--racing);isolation:isolate}
 .bestandbild>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
 .bestandbild .schleier{position:absolute;inset:0;z-index:-1;background:rgba(13,46,36,.35)}
-.bestandbild svg.grenzen{position:absolute;inset:0;width:100%;height:100%}
 .bestandbild .hinweis-bild{position:absolute;right:14px;top:14px;font-size:10.5px;letter-spacing:.08em;color:rgba(246,245,241,.85);border:1px dashed rgba(246,245,241,.5);border-radius:6px;padding:3px 6px}
 .aktion small{display:block;opacity:.85}
 
@@ -412,3 +396,11 @@ details.gewerk[open] summary::after{content:""}
 .kartenbuehne .orte::-webkit-scrollbar{display:none}
 .kartenbuehne .orte button{flex:none;padding:7px 12px;border-radius:999px;background:rgba(246,245,241,.16);color:var(--karte);font-size:12.5px;font-weight:600;min-height:36px;box-shadow:0 0 0 1px rgba(246,245,241,.25)}
 .kartenbuehne .orte button.an{background:var(--amber);color:var(--tinte);box-shadow:none}
+/* Mein Wald als Bildbühne */
+.kartenbuehne.bildbuehne{height:min(46vh,420px)}
+.bildbuehne>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bildbuehne .schleier{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,46,36,.55) 0%,rgba(13,46,36,.05) 35%,rgba(13,46,36,.15) 60%,rgba(13,46,36,.85) 100%)}
+.bildbuehne .ortunten{position:absolute;left:20px;right:20px;bottom:52px;display:flex;flex-direction:column;gap:2px;color:var(--karte)}
+.bildbuehne .ortunten b{font-family:var(--zahl);font-size:30px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.bildbuehne .ortunten>span:last-child{font-size:14px;opacity:.9}
+.bildbuehne .ortunten .hinweis-bild{align-self:flex-start;margin-bottom:6px;font-size:10.5px;letter-spacing:.08em;border:1px solid rgba(246,245,241,.5);border-radius:6px;padding:3px 6px;background:rgba(13,46,36,.45)}
