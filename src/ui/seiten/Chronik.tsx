@@ -16,13 +16,11 @@ export function Chronik() {
   const ms = fortschreibung.massnahmen;
   const name = (id?: string) => wald.bestaende.find((b) => b.id === id)?.label;
 
-  const export_ = (inhalt: string, datei: string, typ: string) => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([inhalt], { type: typ }));
-    a.download = datei;
-    a.click();
+  // Kopieren statt Herunterladen: funktioniert auch dort, wo Downloads gesperrt sind.
+  const kopieren = async (inhalt: string, was: string) => {
+    try { await navigator.clipboard.writeText(inhalt); toast(`${was} kopiert.`); } catch { toast('Kopieren wurde vom Browser abgelehnt.'); }
   };
-  const csv = () => export_(['Titel;Bestand;Art;Status;Erstellt;Kostenrahmen;Förderung', ...ms.map((m) => [m.titel, name(m.bestandId) ?? '', m.art, MASSNAHME_STATUS_TEXT[m.status], m.erstellt, m.kostenRahmen ?? '', m.foerderung ?? ''].join(';'))].join('\n'), 'massnahmen.csv', 'text/csv;charset=utf-8');
+  const csv = () => kopieren(['Titel;Bestand;Art;Status;Erstellt;Kostenrahmen;Förderung', ...ms.map((m) => [m.titel, name(m.bestandId) ?? '', m.art, MASSNAHME_STATUS_TEXT[m.status], m.erstellt, m.kostenRahmen ?? '', m.foerderung ?? ''].join(';'))].join('\n'), 'Maßnahmenliste (CSV)');
 
   const vor = (m: Massnahme) => {
     const n = naechsterStatus(m);
@@ -36,7 +34,7 @@ export function Chronik() {
     <Werkzeug seite="chronik" bild="bilder/stamm.webp" titel={<>Was war, <em>was getan wird.</em></>} lead="Jede Entscheidung wird zur Maßnahme, jede erledigte Maßnahme fließt in den Zwilling zurück. So wird aus Planung Bewirtschaftung.">
       <section>
         <div className="kopfzeile"><h2 className="serif" style={{ fontSize: 30 }}>Maßnahmen</h2>
-          {ms.length > 0 && <div style={{ display: 'flex', gap: 8 }}><button className="chip" onClick={csv}>CSV</button><button className="chip" onClick={() => export_(JSON.stringify(fortschreibung, null, 2), 'fortschreibung.json', 'application/json')}>Rechenläufe (JSON)</button></div>}
+          {ms.length > 0 && <div style={{ display: 'flex', gap: 8 }}><button className="chip" onClick={csv}><Icon n="copy" />CSV kopieren</button><button className="chip" onClick={() => kopieren(JSON.stringify(fortschreibung, null, 2), 'Rechenläufe (JSON)')}><Icon n="copy" />Rechenläufe kopieren</button></div>}
         </div>
         {ms.length === 0 ? (
           <div className="feld leer">Noch keine Maßnahmen. Sie entstehen, wenn Sie eine Entscheidung treffen.<br /><a className="knopf" href="#/entscheidungen" style={{ maxWidth: 320, margin: '18px auto 0' }}>Zu den Entscheidungen <Icon n="arrow" /></a></div>

@@ -12,6 +12,7 @@ export function Daten() {
   const [ueber, setUeber] = useState(false);
   const [fehler, setFehler] = useState<string>();
   const [laedt, setLaedt] = useState(false);
+  const [loeschen, setLoeschen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   const laden = async (datei: File) => {
@@ -56,7 +57,12 @@ export function Daten() {
           <div className="feld">
             <h3>Fortschreibung</h3>
             <p className="unterzeile">Messungen, Beschlüsse und Maßnahmen dieses Waldes. Der erfasste Zwilling selbst bleibt unverändert.</p>
-            <button className="knopf2" onClick={() => { if (confirm('Alle Messungen, Beschlüsse und Maßnahmen dieses Waldes löschen?')) { fortschreibungZuruecksetzen(); toast('Fortschreibung zurückgesetzt.'); } }}>Fortschreibung zurücksetzen</button>
+            {!loeschen
+              ? <button className="knopf2" onClick={() => setLoeschen(true)}>Fortschreibung zurücksetzen</button>
+              : <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button className="knopf2" style={{ borderColor: 'var(--schlecht)', color: 'var(--schlecht)' }} onClick={() => { fortschreibungZuruecksetzen(); setLoeschen(false); toast('Fortschreibung zurückgesetzt.'); }}>Ja, alles löschen</button>
+                  <button className="knopf2" onClick={() => setLoeschen(false)}>Abbrechen</button>
+                </div>}
           </div>
         </div>
 
