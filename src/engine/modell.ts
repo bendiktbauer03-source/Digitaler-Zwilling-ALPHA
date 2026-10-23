@@ -144,7 +144,7 @@ export interface Profil {
 
 export interface Wald {
   id: string;
-  quelle: 'beispiel' | 'zwilling';
+  quelle: 'beispiel' | 'zwilling' | 'eigen';
   stand: string;
   betrieb: {
     name: string;

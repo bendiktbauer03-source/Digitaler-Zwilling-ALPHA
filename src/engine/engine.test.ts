@@ -8,7 +8,8 @@ import { foerderungPruefen } from './foerderung/pruefen';
 import { anwenden, hash, LEERE_FORTSCHREIBUNG } from './fortschreibung';
 import { kulturRechnen, type KulturEingabe } from './kultur';
 import { statusLabel, statusVon } from './messwert';
-import { waldVermoegen } from './vermoegen';
+import { allokation, waldVermoegen, wertverlauf, wertzuwachsJahr } from './vermoegen';
+import { waldAusAngaben } from './angaben';
 import { grundflaecheAmPunkt, wzpAlsMesswert, wzpAuswerten } from './wzp';
 import { zwillingImportieren, zwillingTextLesen } from './zwilling-import';
 
@@ -236,5 +237,41 @@ describe('Import eines Waldgrafen-Zwillings', () => {
     const liste = entscheidungenAbleiten({ wald: zwillingImportieren(minimal), annahmen: A, heute: HEUTE });
     expect(liste[0].art).toBe('schaden');
     expect(liste.find((e) => e.art === 'holzernte')!.risiken.some((r) => r.includes('Seilkran'))).toBe(true);
+  });
+});
+
+describe('Depot-Sicht', () => {
+  it('rechnet eine wachsende Wertentwicklung mit Spanne', () => {
+    const v = wertverlauf(BEISPIELWALD, A, 10, 2026);
+    expect(v).toHaveLength(11);
+    expect(v[0].jahr).toBe(2026);
+    expect(v[10].wert).toBeGreaterThan(v[0].wert);
+    for (const p of v) { expect(p.lo).toBeLessThan(p.wert); expect(p.hi).toBeGreaterThan(p.wert); }
+    expect(wertzuwachsJahr(BEISPIELWALD, A).euro).toBeGreaterThan(0);
+  });
+  it('summiert die Baumarten-Allokation auf 100 %', () => {
+    const al = allokation(BEISPIELWALD);
+    expect(al.reduce((s, x) => s + x.pct, 0)).toBeCloseTo(100, 6);
+    expect(al[0].art).toBe('fichte');
+  });
+});
+
+describe('Wald aus einfachen Angaben', () => {
+  const w = waldAusAngaben({ name: 'Hofwald', bundesland: 'Bayern', flaechen: [
+    { name: 'Am Bach', ha: 2, art: 'fichte', alter: 'alt', zustand: 'schaeden' },
+    { name: 'Sturmloch', ha: 0.8, art: 'fichte', alter: 'alt', zustand: 'kahl' },
+    { name: 'Buchen', ha: 1.5, art: 'buche', alter: 'sehr_alt', zustand: 'gesund' },
+  ] }, HEUTE);
+  it('kennzeichnet die Schätzung als noch zu prüfen', () => {
+    for (const b of w.bestaende.filter((x) => !x.kahlflaeche)) expect(statusVon(b.vorrat)).toBe('pruefen');
+  });
+  it('führt zu Begang, Wiederbewaldung und Messung – ohne Verkaufsempfehlung', () => {
+    const liste = entscheidungenAbleiten({ wald: w, annahmen: A, heute: HEUTE });
+    const ids = liste.map((e) => e.art);
+    expect(ids).toContain('schaden');
+    expect(ids).toContain('kultur');
+    expect(ids).toContain('messen');
+    expect(liste.find((e) => e.art === 'schaden')!.statusText).toBe('Von Ihnen gemeldet');
+    for (const e of liste.filter((x) => x.art === 'holzernte')) expect(e.optionen[e.empfohlen].id).toBe('messen');
   });
 });

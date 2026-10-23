@@ -95,7 +95,7 @@ const stehend = (b: Bestand) => !b.kahlflaeche && !b.jungbestand && b.vorrat.wer
 
 // ───────────────────────────── 1 · Schadverdacht ─────────────────────────────
 function schaden(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
-  const befund = b.befunde.find((x) => x.dringlichkeit === 'hoch' && /verdacht|käfer|schad|befall/i.test(x.befund));
+  const befund = b.befunde.find((x) => x.dringlichkeit === 'hoch' && /verdacht|käfer|schad|schäd|befall/i.test(x.befund));
   const ereignis = k.wald.ereignisse.find((e) => e.bestandId === b.id && !e.bestaetigt && !e.erholt && (e.jahr ?? jahr) >= jahr - 1);
   if (!befund && !ereignis) return null;
   const flaeche = Math.min(b.ha, ereignis?.ha ?? haAusText(befund?.wert) ?? Math.min(0.5, b.ha));
@@ -104,6 +104,7 @@ function schaden(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
   const bw = bestandWert(b, k.annahmen);
   const wertImBereich = bw.nettoJeVfm * b.vorrat.wert * flaeche;
   const verlust = Math.min(bw.holzwert, wertImBereich * k.annahmen.schadholzAbschlag * (kaefer ? 2 : 1));
+  const gemeldet = !ereignis && /gemeldet/i.test(befund?.befund ?? '');
   const ort = `${b.label} · ${haText(flaeche)} Verdachtsfläche`;
   const begang = { art: 'begang' as const, bestandId: b.id, titel: `Verdachtsfläche ansehen · ${b.label}` };
   return {
@@ -113,10 +114,12 @@ function schaden(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
     ort,
     bild: BILD.schaden,
     titel: ['Ein Verdacht im ', 'Kronendach.', ' Erst ansehen, dann handeln.'],
-    satz: `Auf rund ${haText(flaeche)} in ${b.label} ist die Vitalität eingebrochen. Die Folgesaison fehlt noch – es kann ein trockener Sommer gewesen sein.${kaefer ? ' Ist es Käfer, entscheidet sich in Wochen, ob daraus ein Nest wird.' : ''}`,
+    satz: gemeldet
+      ? `Sie haben in ${b.label} Schäden gesehen.${kaefer ? ' Ist es Käfer, entscheidet sich in Wochen, ob daraus ein Nest wird.' : ' Ein genauer Blick zeigt, was zu tun ist.'}`
+      : `Auf rund ${haText(flaeche)} in ${b.label} ist die Vitalität eingebrochen. Die Folgesaison fehlt noch – es kann ein trockener Sommer gewesen sein.${kaefer ? ' Ist es Käfer, entscheidet sich in Wochen, ob daraus ein Nest wird.' : ''}`,
     status: 'pruefen',
-    statusText: 'Verdacht aus dem Satellitenbild',
-    statusErklaerung: 'Sentinel-2, Vitalität je 10-m-Zelle gegen den Bestand. Ein Verdacht ist keine Diagnose – erst der Begang bestätigt ihn.',
+    statusText: gemeldet ? 'Von Ihnen gemeldet' : 'Verdacht aus dem Satellitenbild',
+    statusErklaerung: gemeldet ? 'Ihre Beobachtung. Umfang und Ursache klärt der Begang.' : 'Sentinel-2, Vitalität je 10-m-Zelle gegen den Bestand. Ein Verdacht ist keine Diagnose – erst der Begang bestätigt ihn.',
     optionen: [
       {
         id: 'selbst', marke: 'Empfohlen', name: 'Selbst ansehen, in 14 Tagen', preis: '≈ 2 Std. Begang',
@@ -125,7 +128,7 @@ function schaden(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
           { label: 'Holzwert im Verdachtsbereich', wert: euro(wertImBereich) },
           { label: 'Kosten', wert: '0 €', ton: 'gut' },
         ],
-        zeilen: [['Wo', `${b.label}, ${b.mitte.lat.toFixed(5)}, ${b.mitte.lon.toFixed(5)}`], ['Worauf achten', kaefer ? 'Bohrmehl, Harzfluss, braune Kronen' : 'lichte Kronen, Rindenschäden'], ['Danach', 'Befund hier eintragen']],
+        zeilen: [['Wo', b.mitte.lat ? `${b.label}, ${b.mitte.lat.toFixed(5)}, ${b.mitte.lon.toFixed(5)}` : b.label], ['Worauf achten', kaefer ? 'Bohrmehl, Harzfluss, braune Kronen' : 'lichte Kronen, Rindenschäden'], ['Danach', 'Befund hier eintragen']],
         massnahme: begang,
       },
       {
@@ -156,7 +159,7 @@ function schaden(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
       kaefer ? `${pct(nadel)} Nadelholz – der Borkenkäfer ist die wahrscheinlichste Ursache.` : 'Überwiegend Laubholz – eher Trockenstress als Käfer.',
     ],
     risiken: ['Fehlalarm möglich: Ein trockener Sommer zeigt dasselbe Bild.', kaefer ? 'Ab dem Frühjahr kann sich ein Befall auf Nachbarbäume ausbreiten.' : 'Geschwächte Bäume werden später anfällig.'],
-    datenlage: ['Sentinel-2, Vitalität je 10-m-Zelle', `Vorrat: ${statusLabel(b.vorrat)}`, 'Folgesaison noch nicht ausgewertet'],
+    datenlage: gemeldet ? ['Ihre Beobachtung', `Vorrat: ${statusLabel(b.vorrat)}`] : ['Sentinel-2, Vitalität je 10-m-Zelle', `Vorrat: ${statusLabel(b.vorrat)}`, 'Folgesaison noch nicht ausgewertet'],
     dringlichkeit: 'hoch',
     wertEuro: verlust,
     bestandId: b.id,
