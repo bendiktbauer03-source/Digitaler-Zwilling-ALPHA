@@ -14,22 +14,35 @@ export function Karte({ param }: { param?: string }) {
   const vorschlag = offen.find((e) => e.bestandId)?.bestandId ?? wald.bestaende[0]?.id;
   const [auswahl, setAuswahl] = useState<string | undefined>(vorschlag);
   const b = wald.bestaende.find((x) => x.id === auswahl) ?? wald.bestaende[0];
+  // Liegen mehrere Waldorte weit auseinander, zeigt die Karte einen davon.
+  const orte = (wald.reviere ?? []).filter((r) => wald.bestaende.some((x) => x.revier === r.name));
+  const ort = orte.length > 1 ? (b?.revier ?? orte[0].name) : undefined;
+  const sichtbar = ort ? { ...wald, bestaende: wald.bestaende.filter((x) => x.revier === ort), ereignisse: wald.ereignisse.filter((e) => wald.bestaende.find((x) => x.id === e.bestandId)?.revier === ort) } : wald;
+  const ortWaehlen = (name: string) => setAuswahl([...wald.bestaende].filter((x) => x.revier === name).sort((p, q) => q.ha - p.ha)[0]?.id);
   const mitGrenzen = wald.bestaende.some((x) => x.polygon.length > 2);
   const breite = Math.min(window.innerWidth || 390, 560);
   const hoehe = Math.min((window.innerHeight || 844) * 0.62, 560);
   const hinweise = b ? offen.filter((e) => e.bestandId === b.id) : [];
+  const gruppen: [string, string | undefined, typeof wald.bestaende][] = wald.reviere?.length
+    ? wald.reviere.map((r) => [`${r.nummer ? `${r.nummer} · ` : ''}${r.name}`, r.kurz, wald.bestaende.filter((x) => x.revier === r.name)] as [string, string | undefined, typeof wald.bestaende]).filter((g) => g[2].length)
+    : [['Alle Flächen', undefined, wald.bestaende]];
   const ebeneWaehlen = (e: Ebene) => { setEbene(e); history.replaceState(null, '', `#/wald/${e}`); };
 
   return (
     <main className="app karte-seite">
       {mitGrenzen ? (
         <div className="kartenbuehne">
-          <Waldkarte wald={wald} ents={offen} auswahl={b?.id} onWahl={setAuswahl} ebene={ebene} breite={1000} hoehe={Math.round((1000 * hoehe) / breite)} />
+          <Waldkarte key={ort} wald={sichtbar} ents={offen} auswahl={b?.id} onWahl={setAuswahl} ebene={ebene} breite={1000} hoehe={Math.round((1000 * hoehe) / breite)} />
           <div className="kartenkopf">
             <button className="rund glas" onClick={() => zurueck('#/')} aria-label="Zurück zur Übersicht"><Icon n="back" /></button>
             <span className="kartenname">{wald.betrieb.langname}</span>
             <a className="rund glas" href="#/planen/frage" aria-label="Frage stellen"><Icon n="frage" /></a>
           </div>
+          {ort && (
+            <div className="orte" role="group" aria-label="Waldort">
+              {orte.map((r) => <button key={r.name} className={ort === r.name ? 'an' : ''} aria-pressed={ort === r.name} onClick={() => ortWaehlen(r.name)}>{r.name}</button>)}
+            </div>
+          )}
           <div className="ebenen" role="group" aria-label="Kartenebene">
             {EBENEN.map((e) => <button key={e} className={ebene === e ? 'an' : ''} aria-pressed={ebene === e} onClick={() => ebeneWaehlen(e)}>{EBENE_TEXT[e]}</button>)}
           </div>
@@ -58,10 +71,11 @@ export function Karte({ param }: { param?: string }) {
             <a className="aktion dunkel" href={`#/bestand/${b.id}`}>Fläche kennenlernen<span className="pfeil"><Icon n="arrow" /></span></a>
           </>
         )}
-        <div>
-          <span className="klein">Alle Flächen</span>
+        {gruppen.map(([titel, kurz, liste]) => (
+        <div key={titel}>
+          <span className="klein">{titel}</span>{kurz && <span className="unterzeile" style={{ marginLeft: 8 }}>{kurz}</span>}
           <div style={{ marginTop: 6 }}>
-            {wald.bestaende.map((x) => (
+            {liste.map((x) => (
               <button key={x.id} className={`reihe ${x.id === b?.id ? 'gewaehlt' : ''}`} onClick={() => (mitGrenzen ? setAuswahl(x.id) : (location.hash = `#/bestand/${x.id}`))} aria-pressed={x.id === b?.id}>
                 <span className="punkt-st" style={{ width: 14, height: 14, borderRadius: 7, background: farbeVon(x, offen, ebene) }} />
                 <span><b>{x.label}{x.kahlflaeche ? ' · Freifläche' : ''}</b><small>{x.kennung}{x.alter ? ` · ${x.alter.text}` : ''}</small></span>
@@ -70,6 +84,7 @@ export function Karte({ param }: { param?: string }) {
             ))}
           </div>
         </div>
+        ))}
       </section>
     </main>
   );

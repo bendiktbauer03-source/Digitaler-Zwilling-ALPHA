@@ -18,13 +18,13 @@ import { WALDFOEPR_2025 } from './foerderung/regelpaket-by-waldfoepr-2025';
 import { hash, type Massnahme, type Rechenlauf } from './fortschreibung';
 import { kulturRechnen, standardMischung, type KulturEingabe, type Strategie } from './kultur';
 import { genauigkeit, schwaechster, STATUS_TEXT, statusLabel, statusVon, type Datenstatus } from './messwert';
-import { istNadel, type Bestand, type Dringlichkeit, type Wald } from './modell';
+import { ART_TEXT, istNadel, type Bestand, type Dringlichkeit, type Umbauplan, type Wald } from './modell';
 import { bestandWert } from './vermoegen';
 
-export type EntscheidungsArt = 'schaden' | 'holzernte' | 'waldweg' | 'kultur' | 'voranbau' | 'pflege' | 'messen';
+export type EntscheidungsArt = 'schaden' | 'holzernte' | 'waldweg' | 'umbau' | 'kultur' | 'voranbau' | 'pflege' | 'messen';
 
 export const ART_LABEL: Record<EntscheidungsArt, string> = {
-  schaden: 'Waldschutz', holzernte: 'Holzernte', waldweg: 'Waldentwicklung', kultur: 'Wiederbewaldung',
+  schaden: 'Waldschutz', holzernte: 'Holzernte', waldweg: 'Waldentwicklung', umbau: 'Umbauplan', kultur: 'Wiederbewaldung',
   voranbau: 'Waldumbau', pflege: 'Pflege', messen: 'Datenlage',
 };
 
@@ -40,6 +40,8 @@ export interface Option {
   gesperrt?: string;
   /** Wird beim Beschluss als Maßnahme angelegt */
   massnahme?: Omit<Massnahme, 'id' | 'erstellt' | 'status' | 'entscheidungId'>;
+  /** Weitere Maßnahmen desselben Beschlusses (z. B. das erste Jahr eines Umbauplans) */
+  weitere?: Omit<Massnahme, 'id' | 'erstellt' | 'status' | 'entscheidungId'>[];
   /** Führt nach dem Beschluss in einen Arbeitsschritt (z. B. Messung) */
   ziel?: string;
 }
@@ -73,11 +75,11 @@ export interface Kontext { wald: Wald; annahmen: Annahmen; heute?: Date }
 
 const RANG: Record<Dringlichkeit, number> = { hoch: 0, mittel: 1, gering: 2, keine: 3 };
 /** Bei gleicher Dringlichkeit: Was in Wochen verloren geht, vor dem, was in Monaten verloren geht. */
-const ZEITKRITISCH: Record<EntscheidungsArt, number> = { schaden: 0, kultur: 1, messen: 2, holzernte: 3, pflege: 3, voranbau: 4, waldweg: 4 };
+const ZEITKRITISCH: Record<EntscheidungsArt, number> = { schaden: 0, kultur: 1, umbau: 2, pflege: 2, messen: 3, holzernte: 3, voranbau: 4, waldweg: 4 };
 
 const BILD = {
   schaden: 'bilder/kronendach.webp', holzernte: 'bilder/waldweg.webp', waldweg: 'bilder/hochwald.webp',
-  kultur: 'bilder/stamm.webp', voranbau: 'bilder/hochwald.webp', pflege: 'bilder/stamm.webp', messen: 'bilder/nebel.webp',
+  umbau: 'bilder/hochwald.webp', kultur: 'bilder/stamm.webp', voranbau: 'bilder/hochwald.webp', pflege: 'bilder/stamm.webp', messen: 'bilder/nebel.webp',
 } satisfies Record<EntscheidungsArt, string>;
 
 function lauf(k: Kontext, eingaben: unknown, modelle: string[], regelpaket?: string): Omit<Rechenlauf, 'zeit'> {
@@ -92,6 +94,22 @@ function haAusText(s?: string) {
 function nadelAnteil(b: Bestand) { return b.arten.filter((a) => istNadel(a.art)).reduce((s, a) => s + a.pct, 0); }
 
 const stehend = (b: Bestand) => !b.kahlflaeche && !b.jungbestand && b.vorrat.wert >= 150;
+
+/** Unter dieser Menge lohnt sich kein eigener Hieb: Ein Unternehmer kommt nicht für ein paar Festmeter. */
+const MINDESTMENGE_EFM = 25;
+
+/** Gehört der Bestand zu einem gerechneten Umbauplan? Dann entscheidet der Plan über Ernte und Verjüngung. */
+function imPlan(k: Kontext, b: Bestand) {
+  const u = k.wald.umbau;
+  return !!u?.revier && b.revier === u.revier;
+}
+
+/** Mischung nach Standorteignung – mit den Wunschbaumarten des Eigentümers zuerst und ohne seine Tabus. */
+function wunschMischung(k: Kontext, geeignet: string[]) {
+  const tabu = (k.wald.profil.artenTabu ?? []).map((t) => t.toLowerCase());
+  const erlaubt = (a: string) => !tabu.some((t) => a.toLowerCase().includes(t) || t.includes(a.toLowerCase()));
+  return standardMischung([...(k.wald.profil.artenWunsch ?? []), ...geeignet].filter(erlaubt));
+}
 
 // ───────────────────────────── 1 · Schadverdacht ─────────────────────────────
 function schaden(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
@@ -176,12 +194,16 @@ function holzernte(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
   const g = genauigkeit(b.vorrat);
   const naechster = b.waldweg?.eingriffe.find((e) => e.jahr <= jahr + 1 && e.vfmProHa > 0);
 
-  const entnahme = naechster?.vfmProHa ?? standardEntnahme(b);
+  // Trügerisch stabile Bestände vertragen nur schwache Eingriffe – sonst droht Sturmwurf.
+  const vorsicht = !!b.stabilitaet?.kritisch && !naechster;
+  const entnahme = vorsicht ? Math.min(standardEntnahme(b), Math.max(20, Math.round((b.vorrat.wert * 0.1) / 5) * 5)) : naechster?.vfmProHa ?? standardEntnahme(b);
   const zp = zeitpunkteVergleichen({ bestand: b, entnahmeVfmHa: entnahme, annahmen: a }, zins, [0, 5]);
   const [jetzt, spaeter] = zp;
   const dbJetzt = naechster ? naechster.deckungsbeitragGesamt : jetzt.ergebnis.db;
   const efmJetzt = naechster ? naechster.efmGesamt : jetzt.ergebnis.efm;
-  if (dbJetzt <= 0 && !naechster) return null;
+  // Ein Eingriff, der Geld kostet, gehört zum Waldweg; unter einer Lkw-Ladung kommt kein Unternehmer.
+  if (dbJetzt <= 0) return null;
+  if (efmJetzt < MINDESTMENGE_EFM) return null;
   const kostenJeEfm = naechster ? (naechster.kostenHa * b.ha) / Math.max(1, naechster.efmGesamt) : jetzt.ergebnis.kostenJeEfm;
   // Liegt eine gerechnete Route vor, ist sie die Basis. Das eigene Modell liefert nur die
   // relative Veränderung durch Warten – so werden nie zwei Modelle direkt verglichen.
@@ -192,7 +214,9 @@ function holzernte(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
   const spanne = naechster ? [dbJetzt * 0.85, dbJetzt * 1.15] : jetzt.ergebnis.dbSpanne;
   const sperre = status === 'pruefen' ? 'Ohne Messung geben wir keine Verkaufsempfehlung.' : undefined;
   const verfahren = naechster?.verfahren ?? VERFAHREN_TEXT[jetzt.ergebnis.verfahren];
-  const titelArt = naechster?.art ?? (b.hiebsreife?.includes('Zielstärke') ? 'Zielstärkennutzung' : 'Durchforstung');
+  const titelArt = naechster?.art ?? (vorsicht ? 'Vorsichtige Auslese' : b.hiebsreife?.includes('Zielstärke') ? 'Zielstärkennutzung' : 'Durchforstung');
+  const p = k.wald.profil;
+  const zielVorrat = p.vorratMax && b.vorrat.wert > p.vorratMax * 1.15 ? `Ihr Zielvorrat liegt bei ${zahl(p.vorratMin ?? p.vorratMax)}–${zahl(p.vorratMax)} Vfm/ha, hier stehen ${zahl(b.vorrat.wert)}: Abbau über mehrere Eingriffe.` : undefined;
 
   const optionen: Option[] = [
     {
@@ -253,12 +277,17 @@ function holzernte(k: Kontext, b: Bestand, jahr: number): Entscheidung | null {
     optionen,
     empfohlen,
     cta: empfohlen === 2 ? 'Messung starten' : empfohlen === 0 ? 'Angebot anfordern' : 'Vormerken',
-    gruende: naechster?.begruendung.slice(0, 3) ?? [
-      `Vorrat ${zahl(b.vorrat.wert)} Vfm/ha, mittlerer BHD ${zahl(b.bhdCm ?? 0)} cm.`,
-      `Stückmasse ≈ ${zahl(jetzt.ergebnis.stueckmasseEfm, 2)} Efm je Baum – davon hängen die Kosten ab.`,
-      vergleich,
-    ],
+    gruende: [
+      ...(vorsicht ? [`Nur ${zahl(entnahme)} Vfm/ha: Der Bestand ist ${b.stabilitaet!.stufe} (h/d ${zahl(b.stabilitaet!.hd ?? 0)}, grüne Krone ${zahl(b.stabilitaet!.kronePct ?? 0)} %).`] : []),
+      ...(zielVorrat ? [zielVorrat] : []),
+      ...(naechster?.begruendung.slice(0, 3) ?? [
+        `Vorrat ${zahl(b.vorrat.wert)} Vfm/ha, mittlerer BHD ${zahl(b.bhdCm ?? 0)} cm.`,
+        `Stückmasse ≈ ${zahl(jetzt.ergebnis.stueckmasseEfm, 2)} Efm je Baum – davon hängen die Kosten ab.`,
+        vergleich,
+      ]),
+    ].slice(0, 4),
     risiken: [
+      ...(b.stabilitaet?.kritisch ? [b.stabilitaet.folge] : []),
       ...jetzt.ergebnis.hinweise,
       'Holzpreise schwanken: ± 12 % Preis verschiebt den Beitrag spürbar.',
       ...(status !== 'bestaetigt' ? [`Vorrat nur ${STATUS_TEXT[status].toLowerCase()} (± ${Math.round(g ?? 0)} %).`] : []),
@@ -359,7 +388,7 @@ function kulturEingabe(k: Kontext, b: Bestand, ha: number, extra: Partial<Kultur
     bundesland: k.wald.betrieb.bundesland,
     verbiss: k.wald.profil.verbiss,
     schutz: k.wald.profil.verbiss === 'hoch' ? 'zaun' : 'einzelschutz',
-    mischung: standardMischung(geeignet),
+    mischung: wunschMischung(k, geeignet),
     nvMoeglich: (b.verjuengungMoeglich?.length ?? 0) > 0,
     nvAnteil: 0.5,
     zins: k.wald.profil.kalkulationszins,
@@ -425,21 +454,37 @@ function wiederbewaldung(k: Kontext, b: Bestand): Entscheidung | null {
 }
 
 // ───────────────────────────── 5 · Voranbau ─────────────────────────────
-function voranbau(k: Kontext, b: Bestand): Entscheidung | null {
-  if (!stehend(b) || b.waldweg) return null;
+const fichteAnteil = (b: Bestand) => b.arten.filter((a) => a.art === 'fichte').reduce((s, a) => s + a.pct, 0);
+
+function voranbauKandidat(k: Kontext, b: Bestand) {
+  if (!stehend(b) || b.waldweg || imPlan(k, b)) return false;
   const fi = b.eignung.find((e) => /fichte/i.test(e.art));
-  const fichte = b.arten.filter((a) => a.art === 'fichte').reduce((s, a) => s + a.pct, 0);
-  if (fichte < 50 || nadelAnteil(b) < 70 || fi?.entwicklung !== 'schlechter') return null;
-  const vHa = Math.round(b.ha * 0.3 * 100) / 100;
+  return fichteAnteil(b) >= 50 && nadelAnteil(b) >= 70 && fi?.entwicklung === 'schlechter';
+}
+
+/** Voranbau je Revier: Kleine Flurstücke nebeneinander werden in einem Zug bepflanzt. */
+function voranbau(k: Kontext, gruppe: Bestand[]): Entscheidung | null {
+  if (!gruppe.length) return null;
+  const b = [...gruppe].sort((x, y) => y.ha - x.ha)[0];
+  const ha = gruppe.reduce((s, x) => s + x.ha, 0);
+  const fi = b.eignung.find((e) => /fichte/i.test(e.art));
+  const fichte = Math.round(gruppe.reduce((s, x) => s + fichteAnteil(x) * x.ha, 0) / ha);
+  const vHa = Math.round(ha * 0.3 * 100) / 100;
+  const geeignet = b.eignung.filter((e) => e.heute === 'gut' && e.entwicklung !== 'schlechter').map((e) => e.art);
+  const wunsch = wunschMischung(k, ['tanne', 'buche', ...geeignet]).filter((m) => m.art !== 'fichte').slice(0, 2);
   const e = kulturEingabe(k, b, vHa, {
     voranbau: true,
     schutz: 'einzelschutz',
-    mischung: [{ art: 'tanne', anteil: 60, stkProHa: 2000 }, { art: 'buche', anteil: 40, stkProHa: 3000 }],
+    mischung: wunsch.length === 2 ? [{ ...wunsch[0], anteil: 60, stkProHa: 2000 }, { ...wunsch[1], anteil: 40, stkProHa: 3000 }] : [{ art: 'tanne', anteil: 60, stkProHa: 2000 }, { art: 'buche', anteil: 40, stkProHa: 3000 }],
   });
+  const artenText = e.mischung.map((m) => ART_TEXT[m.art as keyof typeof ART_TEXT] ?? m.art).join('/');
   const r = kulturRechnen('pflanzung', e);
-  const bw = bestandWert(b, k.annahmen);
+  const bw = gruppe.reduce((s, x) => s + bestandWert(x, k.annahmen).holzwert, 0);
   const p = k.annahmen.schadrisiko.schlechter;
-  const risiko10 = bw.holzwert * schadenBis(10, p) * k.annahmen.schadholzAbschlag;
+  const risiko10 = bw * schadenBis(10, p) * k.annahmen.schadholzAbschlag;
+  const ort = gruppe.length > 1 ? `${b.revier ?? b.label} · ${gruppe.length} Flurstücke · ${haText(ha)}` : `${b.label} · ${pct(fichte)} Fichte`;
+  const nass = gruppe.find((x) => /oberflächennah|< ?1[0-3] dm|grundwassernah/i.test(x.boden?.grundwasser ?? ''));
+  const foto = k.wald.fotos?.find((f) => f.revier === b.revier);
   const opt: Option[] = [
     {
       id: 'aelf', marke: 'Empfohlen', name: 'Begang mit dem AELF, dann Voranbau beantragen', preis: '0 € Beratung',
@@ -451,7 +496,7 @@ function voranbau(k: Kontext, b: Bestand): Entscheidung | null {
       zeilen: [['Wer', 'Revierleiter am AELF'], ['Was', 'Voranbaufläche, Baumarten, Förderweg'], ['Danach', 'Antrag vor Beginn']],
       massnahme: { art: 'foerderung', bestandId: b.id, titel: `Begang mit AELF vereinbaren · ${b.label}`, erstNachBewilligung: true },
     },
-    { ...kulturOption(r, 'Direkt', b), name: `Voranbau Tanne/Buche auf ${haText(vHa)}` },
+    { ...kulturOption(r, 'Direkt', b), name: `Voranbau ${artenText} auf ${haText(vHa)}` },
     {
       id: 'abwarten', marke: 'Abwarten', name: 'Nur Käferkontrolle', preis: '0 €',
       wirkung: [
@@ -463,40 +508,50 @@ function voranbau(k: Kontext, b: Bestand): Entscheidung | null {
     },
   ];
   return {
-    id: `voranbau-${b.id}`,
+    id: `voranbau-${gruppe.length > 1 ? (b.revier ?? b.id).toLowerCase().replace(/[^a-z0-9]+/g, '-') : b.id}`,
     art: 'voranbau',
     kurz: 'Zweite Schicht anlegen',
-    ort: `${b.label} · ${pct(fichte)} Fichte`,
+    ort,
     bild: BILD.voranbau,
     titel: ['Unter die Fichte eine ', 'zweite Schicht', ' bringen.'],
-    satz: `Die Fichte trägt hier Wert und Risiko zugleich. Ein Voranbau mit Tanne und Buche auf rund ${haText(vHa)} steht bereit, wenn oben etwas ausfällt. ${fi?.hinweis ?? ''}`.trim(),
+    satz: `Die Fichte trägt hier Wert und Risiko zugleich. Ein Voranbau mit ${artenText.replace('/', ' und ')} auf rund ${haText(vHa)} steht bereit, wenn oben etwas ausfällt.${gruppe.length > 1 ? ` Die ${gruppe.length} Flurstücke liegen beieinander – ein Antrag, ein Pflanztrupp.` : ''} ${fi?.hinweis ?? ''}`.trim(),
     status: schwaechster(statusVon(b.vorrat), 'geschaetzt'),
     statusText: 'Eignung abgeleitet',
     statusErklaerung: `Baumarteneignung aus Standort und Klimaverschiebung; Kosten aus Richtwerten ${k.annahmen.version}.`,
     optionen: opt,
     empfohlen: 0,
     cta: 'Begang anfragen',
-    gruende: [...(fi?.gruende.slice(0, 2) ?? []), `Erwarteter Schaden ohne zweite Schicht in zehn Jahren ≈ ${euro(risiko10, false)}.`],
-    risiken: ['Tanne braucht Schutz vor Verbiss', 'Voranbau-Satz der WALDFÖPR vor Antrag prüfen'],
+    gruende: [
+      ...(foto ? [`Ihr Foto vom ${foto.datum.split('-').reverse().join('.')}: ${foto.kurz}.`] : []),
+      ...(nass ? [`Grundwassernah (${nass.label}): Die Fichte wurzelt hier flach – Tanne und Buche halten den Boden tiefer.`] : []),
+      ...(fi?.gruende.slice(0, 2) ?? []),
+      ...(k.wald.profil.artenWunsch?.length ? [`Baumarten nach Ihrem Wunsch: ${k.wald.profil.artenWunsch.join(', ')}.`] : []),
+      `Erwarteter Schaden ohne zweite Schicht in zehn Jahren ≈ ${euro(risiko10, false)}.`,
+    ].slice(0, 4),
+    risiken: [...(b.stabilitaet?.kritisch ? ['Zum Auflichten nur behutsam eingreifen: ' + b.stabilitaet.folge] : []), 'Tanne braucht Schutz vor Verbiss', 'Voranbau-Satz der WALDFÖPR vor Antrag prüfen'],
     datenlage: ['Eignungsansprache je Baumart', `Holzwert: ${statusLabel(b.vorrat)}`, `Regelpaket ${WALDFOEPR_2025.version}`],
     dringlichkeit: 'mittel',
     wertEuro: risiko10,
     bestandId: b.id,
     rechner: `#/zukunft/${b.id}`,
-    rechenlauf: lauf(k, { b: b.id, vHa }, ['Waldgrafen-Kulturmodell v1', 'Waldgrafen-Vermögensmodell v1'], WALDFOEPR_2025.version),
+    rechenlauf: lauf(k, { b: gruppe.map((x) => x.id), vHa }, ['Waldgrafen-Kulturmodell v1', 'Waldgrafen-Vermögensmodell v1'], WALDFOEPR_2025.version),
   };
 }
 
 // ───────────────────────────── 6 · Jungbestandspflege ─────────────────────────────
 function pflege(k: Kontext, b: Bestand): Entscheidung | null {
-  if (!b.jungbestand || b.jungbestand.hoeheM > 15) return null;
+  const jungwuchs = !!b.jungbestand && b.jungbestand.hoeheM <= 15;
+  // Junge Stangenhölzer mit vielen Stämmen: Jetzt entscheidet die Auslese der Zukunftsbäume.
+  const auslese = !jungwuchs && !b.kahlflaeche && !!b.alter && b.alter.bis <= 45 && (b.stammzahlProHa ?? 0) >= 250;
+  if (!jungwuchs && !auslese) return null;
+  if (auslese) return zukunftsbaeume(k, b);
   const kosten = k.annahmen.kultur.jungbestandspflegeHa * b.ha;
-  const f = foerderungPruefen({ bundesland: k.wald.betrieb.bundesland, jungbestand: { ha: b.ha, hoeheM: b.jungbestand.hoeheM } });
+  const f = foerderungPruefen({ bundesland: k.wald.betrieb.bundesland, jungbestand: { ha: b.ha, hoeheM: b.jungbestand!.hoeheM } });
   return {
     id: `pflege-${b.id}`,
     art: 'pflege',
     kurz: 'Jungbestand pflegen',
-    ort: `${b.label} · ${haText(b.ha)} · ${zahl(b.jungbestand.hoeheM)} m hoch`,
+    ort: `${b.label} · ${haText(b.ha)} · ${zahl(b.jungbestand!.hoeheM)} m hoch`,
     bild: BILD.pflege,
     titel: ['Jetzt die ', 'Mischung sichern', ', solange es wenig kostet.'],
     satz: `Im Jungbestand entscheidet sich, welche Baumarten durchkommen. Eine Pflege jetzt sichert die Mischung und kostet einen Bruchteil späterer Korrekturen.`,
@@ -538,7 +593,7 @@ function pflege(k: Kontext, b: Bestand): Entscheidung | null {
     cta: 'Antrag vorbereiten',
     gruende: ['Pflege im Jungbestand ist die günstigste Mischungsregulierung.', ...f.posten.map((p) => `${p.titel}: ${zahl(p.satz ?? 0)} €/ha`)],
     risiken: f.hinweise.slice(0, 3),
-    datenlage: [`Höhe ${zahl(b.jungbestand.hoeheM)} m aus Fernerkundung`, ...f.quellen.map((q) => q.titel)],
+    datenlage: [`Höhe ${zahl(b.jungbestand!.hoeheM)} m aus Fernerkundung`, ...f.quellen.map((q) => q.titel)],
     dringlichkeit: 'mittel',
     wertEuro: kosten,
     bestandId: b.id,
@@ -546,7 +601,151 @@ function pflege(k: Kontext, b: Bestand): Entscheidung | null {
   };
 }
 
-// ───────────────────────────── 7 · Genauer werden ─────────────────────────────
+function zukunftsbaeume(k: Kontext, b: Bestand): Entscheidung {
+  const hoehe = b.hoeheM ?? 16;
+  const kosten = k.annahmen.kultur.jungbestandspflegeHa * b.ha;
+  const f = foerderungPruefen({ bundesland: k.wald.betrieb.bundesland, jungbestand: { ha: b.ha, hoeheM: hoehe } });
+  const befund = b.befunde.find((x) => /zukunftsb|stammzahl|auslese/i.test(`${x.befund} ${x.folge ?? ''}`));
+  const foto = k.wald.fotos?.find((x) => x.revier === b.revier);
+  const gewerk = k.wald.gewerke?.find((g) => g.id === 'auslese');
+  const warnungen = b.befunde.filter((x) => x !== befund && /boden|torf|schad|esche|wind/i.test(`${x.befund} ${x.wert ?? ''}`)).map((x) => `${x.befund}: ${x.folge ?? x.wert ?? ''}`.trim());
+  const zBaeume = Math.round(b.ha * 100);
+  return {
+    id: `pflege-${b.id}`,
+    art: 'pflege',
+    kurz: 'Zukunftsbäume wählen',
+    ort: `${b.label} · ${haText(b.ha)} · ${b.alter!.text}`,
+    bild: BILD.pflege,
+    titel: ['Jetzt die ', 'Zukunftsbäume', ' wählen.'],
+    satz: `${zahl(b.stammzahlProHa ?? 0)} Stämme je Hektar teilen sich das Licht. Wer jetzt 80 bis 120 gute Bäume je Hektar auswählt und freistellt, lenkt den Zuwachs der nächsten Jahrzehnte in wertvolles Holz.${gewerk ? ` ${gewerk.wann[0].toUpperCase()}${gewerk.wann.slice(1)}.` : ''}`,
+    status: schwaechster(statusVon(b.vorrat), 'geschaetzt'),
+    statusText: foto ? 'Foto und Fernerkundung' : 'Aus Fernerkundung',
+    statusErklaerung: `Stammzahl und Höhe aus dem Laserscan${foto ? `, Baumarten und Zustand aus Ihrem Foto vom ${foto.datum.split('-').reverse().join('.')}` : ''}. Pflegekosten aus Richtwerten ${k.annahmen.version}.`,
+    fehlt: b.eigentuemer && /esche/i.test(b.eigentuemer) ? ['Beim Auszeichnen: Esche mit Triebsterben nicht als Zukunftsbaum wählen'] : undefined,
+    optionen: [
+      {
+        id: 'selbst', marke: 'Empfohlen', name: 'Selbst auszeichnen, Unternehmer pflegt', preis: euro(kosten * 0.8),
+        wirkung: [
+          { label: 'Zukunftsbäume', wert: `≈ ${zahl(zBaeume)} Stück`, ton: 'gut' },
+          { label: 'Förderung', wert: f.betrag > 0 ? euro(f.betrag) : hoehe > 15 ? 'über 15 m nicht mehr' : FOERDERSTATUS_TEXT[f.status], ton: f.betrag > 0 ? 'gut' : undefined },
+          { label: 'Ihr Eigenanteil', wert: euro(Math.max(0, kosten * 0.8 - f.betrag)) },
+        ],
+        zeilen: [['Sie', 'Zukunftsbäume mit Band markieren (≈ 1 Tag)'], ['Unternehmer', 'Bedränger entnehmen'], ['Beginn', f.betrag > 0 ? 'erst nach Bewilligung' : 'Herbst bis Frühjahr']],
+        massnahme: { art: 'pflege', bestandId: b.id, titel: `Zukunftsbäume auszeichnen und freistellen · ${b.label}`, kostenRahmen: Math.round(kosten * 0.8), foerderung: Math.round(f.betrag), erstNachBewilligung: f.betrag > 0 },
+      },
+      {
+        id: 'unternehmer', marke: 'Begleitet', name: 'Auslese komplett vergeben', preis: euro(kosten),
+        wirkung: [
+          { label: 'Zukunftsbäume', wert: `≈ ${zahl(zBaeume)} Stück`, ton: 'gut' },
+          { label: 'Förderung', wert: f.betrag > 0 ? euro(f.betrag) : '—' },
+          { label: 'Sie', wert: 'müssen nichts tun', ton: 'gut' },
+        ],
+        zeilen: [['Worauf achten', gewerk?.kriterien[0] ?? 'Erfahrung mit Laubholz'], ['Kosten', 'Richtwert, Angebot einholen']],
+        massnahme: { art: 'pflege', bestandId: b.id, titel: `Auslese beauftragen · ${b.label}`, kostenRahmen: Math.round(kosten), foerderung: Math.round(f.betrag), erstNachBewilligung: f.betrag > 0 },
+      },
+      {
+        id: 'spaeter', marke: 'Aufschieben', name: 'In fünf Jahren', preis: '0 € heute',
+        wirkung: [
+          { label: 'Kronen', wert: 'werden kürzer', ton: 'schlecht' },
+          { label: 'Stabilität', wert: 'sinkt', ton: 'schlecht' },
+          { label: 'Förderung', wert: 'entfällt wohl', ton: 'schlecht' },
+        ],
+        zeilen: [['Risiko', 'Schlanke Stämme, später Wind- und Schneebruch']],
+      },
+    ],
+    empfohlen: 0,
+    cta: 'Auslese planen',
+    gruende: [
+      ...(befund?.folge ? [befund.folge] : []),
+      ...(foto ? [`Ihr Foto: ${foto.kurz}.`] : []),
+      ...(foto?.befund.some((x) => /markier|auszeichn/i.test(x)) ? ['Auf dem Foto sind schon Markierungen zu sehen – die Auszeichnung hat offenbar begonnen. Vor der Vergabe prüfen, was schon steht.'] : []),
+      `${zahl(b.stammzahlProHa ?? 0)} Stämme/ha bei ${b.alter!.text} – der Kronenschluss ist erreicht.`,
+      ...f.posten.map((x) => `${x.titel}: ${zahl(x.satz ?? 0)} €/ha`),
+    ].slice(0, 4),
+    risiken: [...warnungen, ...f.hinweise].slice(0, 4),
+    datenlage: [`Stammzahl ${zahl(b.stammzahlProHa ?? 0)}/ha und Höhe ${zahl(hoehe, 1)} m aus dem Laserscan`, ...(foto ? [`Foto des Eigentümers, ${foto.datum.split('-').reverse().join('.')}`] : []), ...f.quellen.map((q) => q.titel)].slice(0, 4),
+    dringlichkeit: 'mittel',
+    wertEuro: kosten,
+    bestandId: b.id,
+    rechenlauf: lauf(k, { b: b.id, kosten, hoehe }, ['Regelpaket', 'Waldgrafen-Pflegemodell v1'], WALDFOEPR_2025.version),
+  };
+}
+
+// ───────────────────────────── 7 · Umbauplan ─────────────────────────────
+const MASSNAHME_ART: Record<string, Massnahme['art']> = { Holzernte: 'ernte', Kontrolle: 'begang', Pflanzung: 'kultur', Kulturpflege: 'pflege', Pflege: 'pflege' };
+
+function umbau(k: Kontext, u: Umbauplan, jahr: number): Entscheidung | null {
+  const bestaende = k.wald.bestaende.filter((b) => imPlan(k, b));
+  const empf = u.strategien.find((x) => x.empfohlen) ?? u.strategien[0];
+  const reicher = u.strategien.filter((x) => x !== empf && x.kapitalwert[1] > empf.kapitalwert[1]).sort((x, y) => y.kapitalwert[1] - x.kapitalwert[1])[0];
+  const bisher = u.strategien.find((x) => x.id === 'altersklasse') ?? u.strategien.find((x) => x.id === 'nichtstun');
+  const zeig = [empf, reicher, bisher].filter((x, i, a) => x && a.indexOf(x) === i) as Umbauplan['strategien'];
+  const start = u.rechnung.startjahr || jahr + 1;
+  const erstesJahr = u.massnahmen.filter((m) => m.jahr === start && !/^Unternehmer/.test(m.text));
+  const antrag = u.massnahmen.filter((m) => m.jahr === start + 1 && m.foerderung > 0);
+  const erste = [
+    ...erstesJahr.map((m) => ({ art: MASSNAHME_ART[m.kategorie] ?? 'sonstiges', bestandId: bestaende[0]?.id, titel: `${m.text.replace(/: Stämme über der oberen Zielstärke$/, '')}${m.menge ? ` (${zahl(m.menge, m.menge < 10 && m.menge % 1 ? 1 : 0)} ${m.einheit ?? ''})`.replace(' )', ')') : ''}`, kostenRahmen: m.kosten - m.erloes || undefined })),
+    ...antrag.map((m) => ({ art: 'foerderung' as const, bestandId: bestaende[0]?.id, titel: `Förderantrag: ${m.text}${m.menge ? ` (${zahl(m.menge)} ${m.einheit ?? ''})` : ''}`, kostenRahmen: m.kosten, foerderung: m.foerderung, erstNachBewilligung: true })),
+  ];
+  const kw = (x: Umbauplan['strategien'][number]) => euro(x.kapitalwert[1]);
+  const offenDringlich = u.offen.filter((o) => o.dringlich);
+  const ha = u.ha || bestaende.reduce((s, b) => s + b.ha, 0);
+  return {
+    id: `umbau-${(u.revier ?? 'plan').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    art: 'umbau',
+    kurz: 'Umbauplan festlegen',
+    ort: `${u.bestandName} · ${haText(ha)} · ${u.rechnung.horizont} Jahre`,
+    bild: BILD.umbau,
+    titel: ['Ein Plan für ', `${u.rechnung.horizont} Jahre`, ` – ${(u.kurz ?? 'Ihr Ertragsträger').replace(/^(Der|Die|Das) /, (m) => m.toLowerCase())}.`],
+    satz: `${u.strategien.length} Wege, je ${zahl(u.rechnung.laeufe)} Durchläufe mit Sturm, Käfer und Holzpreisen. Empfohlen: „${empf.name}“ – ${empf.verletzt.length ? 'der beste Kompromiss' : 'erfüllt als bester alle Ihre Vorgaben'}.${reicher ? ` „${reicher.kurz}“ brächte im Mittel ${euro(reicher.kapitalwert[1] - empf.kapitalwert[1])} mehr, verletzt aber: ${reicher.verletzt.join(', ') || 'Ihre Ziele'}.` : ''}`,
+    status: 'geschaetzt',
+    statusText: 'Gerechnet, Start gemessen',
+    statusErklaerung: `Startvorrat aus der Winkelzählprobe; Entwicklung aus dem Umbaumodell (${zahl(u.rechnung.laeufe)} Läufe, Klimapfad ${u.rechnung.szenario}, Zins ${zahl(u.rechnung.zinsPct, 1)} %). Ergebnisse sind Spannen, keine Prognose.`,
+    fehlt: offenDringlich.length ? offenDringlich.map((o) => o.was) : undefined,
+    optionen: zeig.map((x, i) => ({
+      id: x.id,
+      marke: i === 0 ? 'Empfohlen' : x === reicher ? 'Mehr Ertrag' : 'Wie bisher',
+      name: x.name,
+      preis: `Kapitalwert ${kw(x)}`,
+      wirkung: [
+        { label: 'Kapitalwert (Median)', wert: kw(x), ton: x === empf ? 'gut' : undefined },
+        { label: 'Großschaden in 80 Jahren', wert: pct(x.grossschadenPct), ton: x.grossschadenPct >= 60 ? 'schlecht' : undefined },
+        { label: 'Nadelholz am Ende', wert: pct(x.endNadelPct), ton: x.endNadelPct > 60 ? 'schlecht' : x.endNadelPct <= 50 ? 'gut' : undefined },
+      ],
+      zeilen: [
+        ['Spanne (10–90 %)', euroSpanne(x.kapitalwert[0], x.kapitalwert[2])],
+        ['Ihre Vorgaben', x.verletzt.length ? `verletzt: ${x.verletzt.join('; ')}` : 'alle erfüllt'],
+        ['Nutzwert', `${zahl(x.nutzwert, 1)} von 10`],
+      ],
+      massnahme: i === 0 ? { art: 'sonstiges', bestandId: bestaende[0]?.id, titel: `Umbauplan beschlossen: ${x.kurz}` } : undefined,
+      weitere: i === 0 ? erste : undefined,
+    })),
+    empfohlen: 0,
+    cta: 'Plan beschließen',
+    gruende: [
+      u.ziel.beschreibung.split('. ').slice(0, 2).join('. ') + '.',
+      u.kennzahlen.kahlMaxHa === 0 ? 'Nie kahl: Es entsteht zu keinem Zeitpunkt eine Freifläche.' : `Größte Freifläche ${zahl(u.kennzahlen.kahlMaxHa, 1)} ha.`,
+      `Naturverjüngung trägt ${pct(u.kennzahlen.nvAnteilPct)} der neuen Generation – gepflanzt wird nur, wo Samenbäume fehlen.`,
+      `Nadelholz von ${pct(u.heute.nadelPct)} auf ${pct(u.kennzahlen.endNadelPct)}, ${u.kennzahlen.endBaumarten} Baumarten am Ende.`,
+    ],
+    risiken: [
+      `Auch der empfohlene Weg erlebt in ${pct(empf.grossschadenPct)} der Läufe einen Großschaden – das Risiko der Fichte verschwindet nicht sofort.`,
+      ...offenDringlich.map((o) => o.warum),
+    ].slice(0, 4),
+    datenlage: [
+      `Umbaumodell, ${zahl(u.rechnung.laeufe)} Läufe, Klimapfad ${u.rechnung.szenario}, Zins ${zahl(u.rechnung.zinsPct, 1)} %`,
+      ...bestaende.map((b) => `${b.label}: ${b.vorrat.quelle}`),
+      `Plan erstellt ${u.erstellt.split('-').reverse().join('.')}`,
+    ].slice(0, 4),
+    dringlichkeit: start <= jahr + 1 ? 'mittel' : 'gering',
+    wertEuro: bisher ? empf.kapitalwert[1] - bisher.kapitalwert[1] : empf.kapitalwert[1],
+    bestandId: bestaende[0]?.id,
+    rechner: '#/plan',
+    rechenlauf: lauf(k, { plan: u.erstellt, strategie: empf.id }, ['Waldgrafen-Umbaumodell (Monte Carlo)']),
+  };
+}
+
+// ───────────────────────────── 8 · Genauer werden ─────────────────────────────
 function messen(k: Kontext, blockiert: boolean): Entscheidung | null {
   const unsicher = k.wald.bestaende.filter((b) => stehend(b) && statusVon(b.vorrat) !== 'bestaetigt');
   if (!unsicher.length) return null;
@@ -560,7 +759,7 @@ function messen(k: Kontext, blockiert: boolean): Entscheidung | null {
     id: 'messen',
     art: 'messen',
     kurz: 'Genauer werden',
-    ort: `${unsicher.length} ${unsicher.length === 1 ? 'Bestand' : 'Bestände'} · ${haText(unsicher.reduce((s, b) => s + b.ha, 0))}`,
+    ort: `${new Set(unsicher.map((b) => b.revier)).size === 1 && unsicher[0].revier ? `${unsicher[0].revier} · ` : ''}${unsicher.length} ${unsicher.length === 1 ? 'Bestand' : 'Bestände'} · ${haText(unsicher.reduce((s, b) => s + b.ha, 0))}`,
     bild: BILD.messen,
     titel: ['Fünf Minuten im Wald, ', 'zehnmal genauer.', ''],
     satz: `${frage?.warum ?? 'Der Vorrat ist bisher aus Fernerkundung geschätzt.'} Es geht um einen Holzwert von ${euro(holzwert)}.`,
@@ -615,10 +814,15 @@ export function entscheidungenAbleiten(k: Kontext): Entscheidung[] {
   const jahr = (k.heute ?? new Date()).getFullYear();
   const liste: Entscheidung[] = [];
   for (const b of k.wald.bestaende) {
-    for (const f of [schaden(k, b, jahr), wiederbewaldung(k, b), pflege(k, b), voranbau(k, b), holzernte(k, b, jahr), waldweg(k, b, jahr)]) {
+    const geplant = imPlan(k, b);
+    for (const f of [schaden(k, b, jahr), wiederbewaldung(k, b), pflege(k, b), geplant ? null : holzernte(k, b, jahr), geplant ? null : waldweg(k, b, jahr)]) {
       if (f) liste.push(f);
     }
   }
+  const gruppen = new Map<string, Bestand[]>();
+  for (const b of k.wald.bestaende.filter((x) => voranbauKandidat(k, x))) gruppen.set(b.revier ?? b.id, [...(gruppen.get(b.revier ?? b.id) ?? []), b]);
+  for (const g of gruppen.values()) { const v = voranbau(k, g); if (v) liste.push(v); }
+  if (k.wald.umbau) { const u = umbau(k, k.wald.umbau, jahr); if (u) liste.push(u); }
   const blockiert = liste.some((e) => e.art === 'holzernte' && e.status === 'pruefen');
   const m = messen(k, blockiert);
   if (m) liste.push(m);

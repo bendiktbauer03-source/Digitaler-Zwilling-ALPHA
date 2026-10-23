@@ -315,3 +315,91 @@ describe('Startseite', () => {
     expect(ersteErkenntnis(eigen)!.grundlage).toMatch(/Allgemeine/);
   });
 });
+
+describe('Zwilling v4: Messung, Stabilität, Reviere, Umbauplan', () => {
+  const eignung = { eignung: [{ art: 'Fichte', heute: 'kritisch', entwicklung: 'schlechter', gruende: [] }, { art: 'Weißtanne', heute: 'gut', entwicklung: 'stabil', gruende: [] }, { art: 'Traubeneiche', heute: 'gut', entwicklung: 'stabil', gruende: [] }] };
+  const fichte = (id: string, revier: string, ha: number, extra: object = {}) => ({
+    id, label: `${revier} · ${id}`, revier, flurstueck: id, haBerechnet: ha, polygon: [], mitte: { lat: 48, lon: 11 },
+    mittelhoeheM: 30, bhdMittelCm: 42, nadelPct: 100, stammzahlProHa: 230,
+    konsens: { vfmProHa: 640, spanneVfmProHa: [600, 700], genauigkeitPct: 9, herkunft: 'gemessen' },
+    alter: { artengruppe: 'fichte', schaetzung: { alterVonJahre: 75, alterBisJahre: 100 } },
+    ...extra,
+  });
+  const v4 = {
+    betrieb: { id: 'v4', name: 'V4', langname: 'Testbetrieb', bundesland: 'Bayern' },
+    kennzahlen: { erfasst: '2026-08-22' },
+    reviere: [{ flaecheId: 'nord', nummer: '01', name: 'Nordhang', kurz: 'Der Ertragsträger' }, { flaecheId: 'weiher', nummer: '02', name: 'Weiher' }],
+    bestaende: [
+      fichte('a', 'Nordhang', 2.6, {
+        konsens: { vfmProHa: 825, spanneVfmProHa: [788, 937], genauigkeitPct: 9, herkunft: 'gemessen', feldmessung: { datum: '2026-08-22', verfahren: 'Winkelzählprobe im Bestand', grundflaecheM2ProHa: 62, erfassungsgradPct: 50 } },
+        stabilitaet: { stufe: 'trügerisch stabil', folge: 'Nur schwach eingreifen.', hd: 74, krone: 18 },
+      }),
+      fichte('b', 'Weiher', 0.12, { stabilitaet: { stufe: 'trügerisch stabil', folge: 'Nur schwach eingreifen.', hd: 75, krone: 18 } }),
+      fichte('c', 'Weiher', 0.2),
+      fichte('d', 'Engerl', 0.9, { nadelPct: 0, stammzahlProHa: 400, mittelhoeheM: 14, konsens: { vfmProHa: 127, genauigkeitPct: 25, herkunft: 'abgeleitet' }, alter: { artengruppe: 'edellaub', schaetzung: { alterVonJahre: 26, alterBisJahre: 31 } } }),
+    ],
+    wachstum: { modell: 'FVA', erstellt: '2026-10-04', szenarien: { nichtstun: 'Ohne Eingriff' }, bestaende: [{ teilId: 'd', szenarien: { nichtstun: [{ jahr: 0, v: 120, arten: { 211: { v: 40 }, 311: { v: 80 } } }, { jahr: 30, v: 440 }] } }] },
+    standort: { eignungJeBestand: { a: eignung, b: eignung, c: eignung, d: eignung } },
+    profil: { besitzer: 'V4', gespraechAm: '2026-09-29', vorratMin: 450, vorratMax: 550, artenWunsch: ['tanne', 'buche'], artenTabu: ['traubeneiche', 'stieleiche'] },
+  };
+  const plan = {
+    erstellt: '2026-09-28', bestand: { name: 'Bestand 01 · Nordhang', kurz: 'Der Ertragsträger', ha: 2.6 },
+    rechnung: { szenario: 'RCP4.5', startjahr: 2027, horizont: 80, laeufe: 400, zinsPct: 1.5 },
+    ziel: { name: 'Dauerwald im Vorratskorridor', beschreibung: 'Ziel ist ein Dauerwald. Nie kahl.' }, korridor: [450, 550],
+    heute: { vorratVfmProHa: 677, nadelPct: 93 }, kennzahlen: { kapitalwert: { p10: 52000, p50: 67000, p90: 81000 }, kahlMaxHa: 0, nvAnteilPct: 77, endNadelPct: 46, endBaumarten: 4 },
+    strategien: [
+      { id: 'raeumung', name: 'Räumen', kurz: 'Räumung', empfohlen: false, kapitalwert: { p10: 50000, p50: 80000, p90: 112000 }, grossschadenPct: 50, endNadelPct: 37, nutzwert: 7.6, verletzt: ['Kahlfläche 2,6 ha'] },
+      { id: 'korridor', name: 'Dauerwald im Vorratskorridor', kurz: 'Korridor', empfohlen: true, kapitalwert: { p10: 52000, p50: 67000, p90: 81000 }, grossschadenPct: 55, endNadelPct: 46, nutzwert: 8.7, verletzt: [] },
+      { id: 'altersklasse', name: 'Weiter wie bisher', kurz: 'Altersklasse', empfohlen: false, kapitalwert: { p10: 32000, p50: 54000, p90: 76000 }, grossschadenPct: 63, endNadelPct: 82, nutzwert: 4.2, verletzt: ['Nadelholz 82 %'] },
+    ],
+    phasen: [{ id: 'P0', name: 'Sichern', von: 2026, bis: 2027, ziel: '' }],
+    massnahmen: [
+      { jahr: 2027, phase: 'P0', kategorie: 'Holzernte', text: 'Zielstärkennutzung', menge: 475, einheit: 'Efm', erloes: 37743, kosten: 12536, foerderung: 0 },
+      { jahr: 2027, phase: 'P0', kategorie: 'Holzernte', text: 'Unternehmer: Umsetzen', erloes: 0, kosten: 450, foerderung: 0 },
+      { jahr: 2028, phase: 'P1', kategorie: 'Pflanzung', text: 'Weißtanne in Gruppen', menge: 1450, einheit: 'Pflanzen', erloes: 0, kosten: 3335, foerderung: 3335 },
+    ],
+    jahrzehnte: [], verlauf: [{ jahr: 2027, vorrat: 677, nadelPct: 93, art: { fichte: 629 } }], offen: [{ was: 'Verdachtsfläche kontrollieren', warum: 'Vor allem anderen.', dringlich: true }],
+  };
+  const html = `<script type="application/json" id="wg-daten">${JSON.stringify(v4)}</script><script type="application/json" id="wg-umbau">${JSON.stringify(plan)}</script>`;
+  const w = zwillingImportieren(zwillingTextLesen(html));
+  const liste = entscheidungenAbleiten({ wald: w, annahmen: A, heute: HEUTE });
+
+  it('liest Feldmessung, Stabilität, Revier und Baumarten der Wuchssimulation', () => {
+    const a = w.bestaende[0];
+    expect(a.messung?.grundflaecheM2Ha).toBe(62);
+    expect(a.vorrat.quelle).toMatch(/Winkelzählprobe im Bestand am 22\.08\.2026/);
+    expect(a.stabilitaet?.kritisch).toBe(true);
+    expect(a.revier).toBe('Nordhang');
+    const d = w.bestaende[3];
+    expect(d.fuehrend).toBe('edellaub');
+    expect(d.arten[0]).toEqual({ art: 'edellaub', pct: 67 });
+    expect(w.profil.artenTabu).toContain('traubeneiche');
+    expect(w.umbau?.revier).toBe('Nordhang');
+  });
+  it('übergibt Ernte und Verjüngung im Planrevier an den Umbauplan', () => {
+    expect(liste.some((e) => e.art === 'holzernte' && e.bestandId === 'a')).toBe(false);
+    const u = liste.find((e) => e.art === 'umbau')!;
+    expect(u.optionen[0].name).toBe('Dauerwald im Vorratskorridor');
+    expect(u.optionen[1].zeilen[1][1]).toMatch(/Kahlfläche/);
+    expect(u.optionen[0].weitere!.map((m) => m.titel).join(' | ')).toMatch(/Zielstärkennutzung \(475 Efm\).*Förderantrag: Weißtanne/);
+    expect(u.optionen[0].weitere!.some((m) => /Unternehmer/.test(m.titel))).toBe(false);
+  });
+  it('lässt Kleinstflächen nicht einzeln ernten und bündelt den Voranbau je Revier', () => {
+    expect(liste.some((e) => e.art === 'holzernte' && (e.bestandId === 'b' || e.bestandId === 'c'))).toBe(false);
+    const v = liste.filter((e) => e.art === 'voranbau');
+    expect(v).toHaveLength(1);
+    expect(v[0].ort).toMatch(/Weiher · 2 Flurstücke/);
+    expect(v[0].optionen[1].name).not.toMatch(/Eiche/);
+  });
+  it('schlägt im jungen Stangenholz die Auslese der Zukunftsbäume vor', () => {
+    const p = liste.find((e) => e.art === 'pflege' && e.bestandId === 'd')!;
+    expect(p.kurz).toBe('Zukunftsbäume wählen');
+  });
+  it('erntet in trügerisch stabilen Beständen nur schwach', () => {
+    const ohnePlan = entscheidungenAbleiten({ wald: { ...w, umbau: undefined }, annahmen: A, heute: HEUTE });
+    const e = ohnePlan.find((x) => x.art === 'holzernte' && x.bestandId === 'a')!;
+    expect(e.optionen[0].name).toMatch(/Vorsichtige Auslese, (\d+) Vfm\/ha/);
+    expect(Number(e.optionen[0].name.match(/(\d+) Vfm/)![1])).toBeLessThanOrEqual(85);
+    expect(e.gruende.join(' ')).toMatch(/Zielvorrat/);
+  });
+});

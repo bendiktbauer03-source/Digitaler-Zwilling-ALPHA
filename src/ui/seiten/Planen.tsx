@@ -8,7 +8,7 @@ const BEISPIELFRAGEN = ['Lohnt sich eine Durchforstung?', 'Was pflanze ich auf d
 
 /** Planen: eine Frage in Alltagssprache oder einer der geführten Abläufe. */
 export function Planen({ param }: { param?: string }) {
-  const { fortschreibung, toast } = useZustand();
+  const { wald, fortschreibung, toast } = useZustand();
   const [frage, setFrage] = useState('');
   const feld = useRef<HTMLInputElement>(null);
   useEffect(() => { if (param === 'frage') feld.current?.focus(); }, [param]);
@@ -37,11 +37,19 @@ export function Planen({ param }: { param?: string }) {
       </form>
 
       <div className="bento">
-        <a className="kachel breit planbild" href="#/zukunft">
-          <img src="bilder/stamm.webp" alt="" />
-          <span className="schleier" />
-          <span className="bildfuss"><b>Mein Wald in 30 Jahren</b><small>Entwicklungswege vergleichen, erst im Bild, dann in Zahlen</small></span>
-        </a>
+        {wald.umbau ? (
+          <a className="kachel breit planbild" href="#/plan">
+            <img src="bilder/stamm.webp" alt="" />
+            <span className="schleier" />
+            <span className="bildfuss"><b>Ihr Umbauplan · {wald.umbau.rechnung.horizont} Jahre</b><small>{wald.umbau.ziel.name}</small></span>
+          </a>
+        ) : (
+          <a className="kachel breit planbild" href="#/zukunft">
+            <img src="bilder/stamm.webp" alt="" />
+            <span className="schleier" />
+            <span className="bildfuss"><b>Mein Wald in 30 Jahren</b><small>Entwicklungswege vergleichen, erst im Bild, dann in Zahlen</small></span>
+          </a>
+        )}
         <a className="kachel k-salbei" href="#/ernte"><Icon n="axe" gross /><span><b className="kt">Holz ernten?</b><small className="ku">Was nach Kosten bleibt</small></span></a>
         <a className="kachel k-rinde" href="#/zukunft"><Icon n="sprout" gross /><span><b className="kt">Pflanzen und umbauen</b><small className="ku">Baumarten, Kosten, Schutz</small></span></a>
         <a className="kachel k-stein" href="#/messen"><Icon n="ruler" gross /><span><b className="kt">Genauer messen</b><small className="ku">Winkelzählprobe mit dem Handy</small></span></a>

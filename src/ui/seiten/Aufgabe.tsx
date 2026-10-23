@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ART_LABEL, type Entscheidung } from '../../engine/entscheidungen';
 import { datumKurz } from '../../engine/format';
 import type { Datenstatus } from '../../engine/messwert';
+import type { Gewerk, Wald } from '../../engine/modell';
 import { gehe, Icon, Leiste, Status, useOffen } from '../bausteine';
 import { beschlussVon, useZustand } from '../zustand';
 
@@ -17,13 +18,31 @@ function Sicherheit({ s }: { s: Datenstatus }) {
   );
 }
 
+/** Das Gewerk, das eine Entscheidung umsetzt – mit den Kriterien für die Auswahl des Unternehmers. */
+function gewerkFuer(d: Entscheidung, wald: Wald): Gewerk | undefined {
+  const b = wald.bestaende.find((x) => x.id === d.bestandId);
+  const nass = /oberflächennah|torf|organisch/i.test(`${b?.boden?.grundwasser ?? ''} ${b?.boden?.humus ?? ''}`);
+  const id = d.art === 'pflege' ? 'auslese' : d.art === 'voranbau' ? 'voranbau' : d.art === 'schaden' ? 'kontrolle' : (d.art === 'holzernte' || d.art === 'umbau') && nass ? 'rueckung' : undefined;
+  return wald.gewerke?.find((g) => g.id === id);
+}
+
+function GewerkKarte({ g, offen }: { g: Gewerk; offen?: boolean }) {
+  return (
+    <details className="feld gewerk" open={offen}>
+      <summary><b>Worauf Sie beim Unternehmer achten</b><small>{g.gewerk}</small></summary>
+      <p className="unterzeile" style={{ marginTop: 8 }}>{g.wofuer} Wann: {g.wann}.</p>
+      <ul className="liste" style={{ marginTop: 6 }}>{g.kriterien.map((k) => <li key={k}>{k}</li>)}</ul>
+    </details>
+  );
+}
+
 function finden(liste: Entscheidung[], id?: string) {
   return liste.find((e) => e.id === id) ?? liste[Number(id) - 1];
 }
 
 /** Eine Aufgabe: Empfehlung zuerst, die anderen Wege darunter, ein Knopf zum Entscheiden. */
 export function Aufgabe({ param }: { param?: string }) {
-  const { entscheidungen, fortschreibung, beschliessen, beschlussZuruecknehmen, toast } = useZustand();
+  const { wald, entscheidungen, fortschreibung, beschliessen, beschlussZuruecknehmen, toast } = useZustand();
   const offen = useOffen();
   const d = finden(entscheidungen, param);
   const [wahl, setWahl] = useState<number | undefined>();
@@ -95,6 +114,8 @@ export function Aufgabe({ param }: { param?: string }) {
             <Icon n="arrow" />
           </a>
 
+          {gewerkFuer(d, wald) && <GewerkKarte g={gewerkFuer(d, wald)!} />}
+
           <div className="unten-fest">
             <button className="knopf amber" onClick={entscheiden} disabled={!!o.gesperrt}>{w === d.empfohlen ? d.cta : 'Diesen Weg wählen'} <Icon n="arrow" /></button>
             {d.rechner && <a className="mehr" href={d.rechner}>Im Rechner selbst durchspielen</a>}
@@ -107,7 +128,7 @@ export function Aufgabe({ param }: { param?: string }) {
 
 /** Eine Ebene tiefer: worauf die Empfehlung beruht. */
 export function Pruefen({ param }: { param?: string }) {
-  const { entscheidungen, modus } = useZustand();
+  const { wald, entscheidungen, modus } = useZustand();
   const d = finden(entscheidungen, param);
   if (!d) return <main className="app"><Leiste eltern="#/aufgaben" /><div className="leer">Diese Aufgabe gibt es nicht mehr.</div></main>;
   const o = d.optionen[d.empfohlen];
@@ -148,6 +169,8 @@ export function Pruefen({ param }: { param?: string }) {
           <div className="liste-zeilen">{o.zeilen.map(([a, b]) => <div key={a}><span>{a}</span><b>{b}</b></div>)}</div>
         </section>
       )}
+
+      {gewerkFuer(d, wald) && <GewerkKarte g={gewerkFuer(d, wald)!} offen />}
 
       <section className="feld" style={{ background: 'var(--stein)' }}>
         <h3>Rechenlauf</h3>

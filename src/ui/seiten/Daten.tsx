@@ -7,6 +7,8 @@ import { ImportFehler, zwillingImportieren, zwillingTextLesen } from '../../engi
 import { gehe, Icon, Regler, Werkzeug } from '../bausteine';
 import { useZustand } from '../zustand';
 
+const gross = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
 export function Daten() {
   const { wald, basis, zwillingSetzen, beispielLaden, annahmen, setAnnahmen, modus, setModus, fortschreibungZuruecksetzen, toast } = useZustand();
   const [ueber, setUeber] = useState(false);
@@ -38,6 +40,28 @@ export function Daten() {
             {wald.profil.annahme && <div className="hinweis" style={{ marginTop: 12 }}>Das Eigentümerprofil (Ziele, Kalkulationszins {pct(wald.profil.kalkulationszins * 100, 1)}, Verbiss {wald.profil.verbiss}) ist eine Standardannahme und noch nicht mit dem Eigentümer besprochen.</div>}
             {wald.quelle !== 'beispiel' && <button className="knopf2" onClick={async () => { await beispielLaden(); toast('Beispieldaten geladen.'); }}>Beispieldaten anzeigen</button>}
           </div>
+          {!wald.profil.annahme && (
+            <div className="feld">
+              <h3>Ihre Ziele{wald.profil.gespraechAm ? ` · Gespräch vom ${datumKurz(wald.profil.gespraechAm)}` : ''}</h3>
+              <div className="liste-zeilen">
+                {wald.profil.vorratMin != null && <div><span>Zielvorrat</span><b>{wald.profil.vorratMin}–{wald.profil.vorratMax} Vfm/ha</b></div>}
+                {wald.profil.artenWunsch?.length ? <div><span>Wunschbaumarten</span><b>{wald.profil.artenWunsch.map(gross).join(', ')}</b></div> : null}
+                {wald.profil.artenTabu?.length ? <div><span>Nicht gewünscht</span><b>{wald.profil.artenTabu.map(gross).join(', ')}</b></div> : null}
+                {wald.profil.fichteMax != null && <div><span>Fichte höchstens</span><b>{pct(wald.profil.fichteMax * 100)}</b></div>}
+                <div><span>Gewicht Wirtschaft</span><b>{pct(wald.profil.gewichtWirtschaft * 100)}</b></div>
+                <div><span>Kalkulationszins</span><b>{pct(wald.profil.kalkulationszins * 100, 1)}</b></div>
+                {wald.profil.einnahmen && <div><span>Einnahmen</span><b>{wald.profil.einnahmen}</b></div>}
+              </div>
+              <p className="unterzeile" style={{ marginTop: 8 }}>Danach richten sich Empfehlungen, Baumartenwahl und der Umbauplan.</p>
+            </div>
+          )}
+          {wald.artenUmfeld && (
+            <div className="feld">
+              <h3>Arten im Umfeld</h3>
+              <p style={{ fontSize: 14.5 }}>{wald.artenUmfeld.anzahl} planungsrelevante Arten auf dem Kartenblatt, davon Waldarten u. a.: {wald.artenUmfeld.wald.slice(0, 8).join(', ')}.</p>
+              <p className="unterzeile" style={{ marginTop: 6 }}>{wald.artenUmfeld.quelle}. Nachweis auf dem Kartenblatt, nicht auf Ihrer Fläche.</p>
+            </div>
+          )}
           <div className="feld">
             <h3>Eigenen Zwilling laden</h3>
             <div className={`ablage ${ueber ? 'ueber' : ''}`} onDragOver={(e) => { e.preventDefault(); setUeber(true); }} onDragLeave={() => setUeber(false)} onDrop={(e) => { e.preventDefault(); setUeber(false); const f = e.dataTransfer.files[0]; if (f) laden(f); }}>

@@ -103,7 +103,7 @@ function wann(iso: string) {
 export function waldjahr(w: Wald, f: Fortschreibung, ents: Entscheidung[], heute = new Date()): WaldjahrEintrag[] {
   const jahr = heute.getFullYear();
   const vergangen = w.tagebuch
-    .filter((t) => t.sicherheit === 'belegt' && t.datum.slice(0, 4) >= String(jahr - 1))
+    .filter((t) => t.sicherheit === 'belegt' && /^\d{4}-\d{2}/.test(t.datum) && t.datum.slice(0, 4) >= String(jahr - 1) && !/^Notiz/.test(t.titel))
     .slice(0, 2)
     .map((t): WaldjahrEintrag => ({ wann: wann(t.datum), titel: t.titel, text: t.bestand ?? t.text, art: 'erledigt' }));
   const laufend = f.massnahmen

@@ -386,3 +386,29 @@ dialog pre{white-space:pre-wrap;font-family:var(--text);font-size:14px;line-heig
 }
 @media (max-width:400px){.marke b{font-size:16px}.marke .siegel{width:32px;height:32px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Zwilling v4: Foto, Umbauplan, Gewerk */
+.bestandbild.foto{height:260px}
+.bestandbild.foto>img{z-index:0}
+.bestandbild.foto .hinweis-bild{z-index:1;background:rgba(13,46,36,.55);border-style:solid}
+.plan-grafik{margin-top:6px}
+.plan-grafik svg{width:100%;height:auto;display:block}
+.plan-grafik .legende i{vertical-align:middle}
+.weg-zeile{padding:12px 0;border-top:1px solid var(--linie)}
+.weg-zeile:first-of-type{border-top:0}
+.weg-zeile b{font-size:15px;font-weight:600}
+.weg-zeile.an{background:var(--salbei);margin:0 -12px;padding:12px;border-radius:16px;border-top:0}
+.kw-spanne{position:relative;height:10px;border-radius:5px;background:var(--grund);margin:6px 0 6px}
+.weg-zeile.an .kw-spanne{background:rgba(246,245,241,.6)}
+.kw-spanne i{position:absolute;top:0;bottom:0;border-radius:5px;background:var(--flechte)}
+.kw-spanne b{position:absolute;top:-3px;width:4px;height:16px;margin-left:-2px;border-radius:2px;background:var(--racing)}
+details.gewerk summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+details.gewerk summary::-webkit-details-marker{display:none}
+details.gewerk summary b{font-size:15.5px;font-weight:600}
+details.gewerk summary small{font-size:13px;color:var(--grau)}
+details.gewerk summary::after{content:"Anzeigen";font-size:13px;font-weight:600;color:var(--amber-text);margin-top:4px}
+details.gewerk[open] summary::after{content:""}
+.kartenbuehne .orte{position:absolute;left:16px;right:16px;top:calc(max(14px,env(safe-area-inset-top)) + 54px);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.kartenbuehne .orte::-webkit-scrollbar{display:none}
+.kartenbuehne .orte button{flex:none;padding:7px 12px;border-radius:999px;background:rgba(246,245,241,.16);color:var(--karte);font-size:12.5px;font-weight:600;min-height:36px;box-shadow:0 0 0 1px rgba(246,245,241,.25)}
+.kartenbuehne .orte button.an{background:var(--amber);color:var(--tinte);box-shadow:none}

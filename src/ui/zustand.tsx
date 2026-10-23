@@ -6,6 +6,7 @@ import { heuteIso } from '../engine/format';
 import { anwenden, LEERE_FORTSCHREIBUNG, type Fortschreibung, type Inventur, type Massnahme, type MassnahmeStatus } from '../engine/fortschreibung';
 import type { Wald } from '../engine/modell';
 import type { Ziel } from '../engine/startseite';
+import { zwillingImportieren } from '../engine/zwilling-import';
 import { lesen, schreiben, zwillingEntfernen, zwillingLaden, zwillingSpeichern } from './speicher';
 
 export type Modus = 'privat' | 'pro';
@@ -57,6 +58,15 @@ export function ZustandProvider({ children, onToast }: { children: ReactNode; on
   const [startGesehen, setStartGesehenS] = useState<boolean>(() => lesen('wg-start-gesehen', false));
 
   useEffect(() => {
+    // Eine Seite kann ihren Zwilling selbst mitbringen (Block „wg-daten“) – dann gilt dieser.
+    const eingebettet = eingebettetLesen();
+    if (eingebettet) {
+      setBasis(eingebettet);
+      setFS(lesen(`wg-fs-${eingebettet.id}`, LEERE_FORTSCHREIBUNG));
+      setZieleS(lesen(`wg-ziele-${eingebettet.id}`, []));
+      setBereit(true);
+      return;
+    }
     zwillingLaden<Wald>().then((w) => {
       const aktiv = w?.bestaende?.length ? w : BEISPIELWALD;
       setBasis(aktiv);
@@ -105,6 +115,7 @@ export function ZustandProvider({ children, onToast }: { children: ReactNode; on
         neu = { ...o.massnahme, id: id(), entscheidungId: e.id, status: 'geplant', erstellt: datum };
         massnahmen.push(neu);
       }
+      for (const m of o.weitere ?? []) massnahmen.push({ ...m, id: id(), entscheidungId: e.id, status: 'geplant', erstellt: datum });
       fsSetzen({
         ...fortschreibung,
         massnahmen,
@@ -134,4 +145,17 @@ export function ZustandProvider({ children, onToast }: { children: ReactNode; on
 /** Ist eine Entscheidung bereits getroffen? */
 export function beschlussVon(f: Fortschreibung, eid: string) {
   return f.beschluesse.find((b) => b.entscheidungId === eid);
+}
+
+function eingebettetLesen(): Wald | undefined {
+  try {
+    const daten = document.getElementById('wg-daten')?.textContent;
+    if (!daten) return undefined;
+    const d = JSON.parse(daten);
+    const umbau = document.getElementById('wg-umbau')?.textContent;
+    if (umbau && !d.umbau) d.umbau = JSON.parse(umbau);
+    return zwillingImportieren(d);
+  } catch {
+    return undefined;
+  }
 }

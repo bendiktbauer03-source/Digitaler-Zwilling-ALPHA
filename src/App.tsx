@@ -11,12 +11,13 @@ import { Messen } from './ui/seiten/Messen';
 import { Planen } from './ui/seiten/Planen';
 import { Start } from './ui/seiten/Start';
 import { Uebersicht } from './ui/seiten/Uebersicht';
+import { Umbauplan } from './ui/seiten/Umbauplan';
 import { Vermoegen } from './ui/seiten/Vermoegen';
 import { Zukunft } from './ui/seiten/Zukunft';
 import { useZustand, ZustandProvider } from './ui/zustand';
 
 const TITEL: Record<string, string> = {
-  '': 'Übersicht', wald: 'Mein Wald', bestand: 'Fläche', planen: 'Planen', aufgaben: 'Aufgaben', aufgabe: 'Aufgabe', pruefen: 'Wie sicher ist das?',
+  '': 'Übersicht', wald: 'Mein Wald', bestand: 'Fläche', planen: 'Planen', plan: 'Umbauplan', aufgaben: 'Aufgaben', aufgabe: 'Aufgabe', pruefen: 'Wie sicher ist das?',
   zukunft: 'Zukunft planen', ernte: 'Holz ernten?', messen: 'Genauer messen', vermoegen: 'Wert und Vermögen', chronik: 'Chronik', daten: 'Daten und Quellen', start: 'Willkommen',
 };
 
@@ -43,6 +44,7 @@ function Seiten() {
       case 'wald': return <Karte key={param} param={param} />;
       case 'bestand': return <Bestand key={param} param={param} />;
       case 'planen': return <Planen param={param} />;
+      case 'plan': return <Umbauplan />;
       case 'aufgaben': return <Aufgaben />;
       case 'aufgabe': return <Aufgabe key={param} param={param} />;
       case 'pruefen': return <Pruefen key={param} param={param} />;

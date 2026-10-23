@@ -9,8 +9,16 @@ import { useZustand } from '../zustand';
 
 export const ART_FARBE: Record<string, string> = {
   fichte: '#0D2E24', tanne: '#335C46', kiefer: '#6F8F5E', douglasie: '#4E7356', laerche: '#A9B9A1',
-  buche: '#E8C76A', eiche: '#B8862F', edellaub: '#D6B9AC', sonstiges: '#D9D7D0',
+  buche: '#E8C76A', eiche: '#B8862F', edellaub: '#D6B9AC', bergahorn: '#C79A6B', sonstiges: '#D9D7D0',
 };
+
+/** Liegen die Waldorte weit auseinander, zeigt das Porträt den größten – sonst wären die Umrisse nur Punkte. */
+export function hauptflaechen(wald: Wald) {
+  if (!wald.reviere || wald.reviere.length < 2) return wald.bestaende;
+  const groesse = (r: string) => wald.bestaende.filter((b) => b.revier === r).reduce((s, b) => s + b.ha, 0);
+  const haupt = [...wald.reviere].sort((a, b) => groesse(b.name) - groesse(a.name))[0];
+  return wald.bestaende.filter((b) => b.revier === haupt.name);
+}
 
 /** Das Waldporträt: der eigene Wald als Bild, die Fläche als einzige große Zahl. */
 export function Portraet({ wald, href, hoehe = 440, unter, verdacht }: { wald: Wald; href?: string; hoehe?: number; unter?: string; verdacht?: Set<string> }) {
@@ -20,7 +28,7 @@ export function Portraet({ wald, href, hoehe = 440, unter, verdacht }: { wald: W
     <>
       <img src="bilder/hochwald.webp" alt="" />
       <span className="schleier" />
-      <div className="grenzen-box"><Umrisse bestaende={wald.bestaende.filter((b) => b.polygon.length > 2)} breite={350} hoehe={hoehe - 210} rand={16} verdacht={verdacht} /></div>
+      <div className="grenzen-box"><Umrisse bestaende={hauptflaechen(wald).filter((b) => b.polygon.length > 2)} breite={350} hoehe={hoehe - 210} rand={16} verdacht={verdacht} /></div>
       <span className="oben">
         <span className="hinweis-bild">{wald.quelle === 'beispiel' ? 'BEISPIEL' : 'STIMMUNGSBILD'}</span>
       </span>
@@ -28,7 +36,7 @@ export function Portraet({ wald, href, hoehe = 440, unter, verdacht }: { wald: W
         <span className="name">{wald.betrieb.langname}</span>
         <span className="flaeche">{ha(gesamtHa(wald)).replace(' ha', '')}<small> ha</small></span>
         <span className="zeile">
-          <span>{unter ?? `${n} ${n === 1 ? 'Fläche' : 'Flächen'} · ${ort}`}</span>
+          <span>{unter ?? (wald.reviere && wald.reviere.length > 1 ? `${n} Flurstücke · ${wald.reviere.length} Waldorte · ${ort}` : `${n} ${n === 1 ? 'Fläche' : 'Flächen'} · ${ort}`)}</span>
           {href && <span className="entdecken">Entdecken <Icon n="ecke" /></span>}
         </span>
       </span>
@@ -175,7 +183,7 @@ export function Uebersicht() {
         <span className="klein">Meinen Wald entdecken</span>
         <div className="karussell">
           <a href="#/wald" className="k-dunkel">
-            {mitGrenzen.length > 0 ? <div className="mini-karte"><Umrisse bestaende={mitGrenzen} breite={168} hoehe={140} rand={14} farbig={(b) => farbeVon(b, offen, 'baumarten')} /></div> : <Icon n="map" gross />}
+            {mitGrenzen.length > 0 ? <div className="mini-karte"><Umrisse bestaende={hauptflaechen(wald).filter((b) => b.polygon.length > 2)} breite={168} hoehe={140} rand={14} farbig={(b) => farbeVon(b, offen, 'baumarten')} /></div> : <Icon n="map" gross />}
             <span className="bildfuss"><b>Ihre {wald.bestaende.length} {wald.bestaende.length === 1 ? 'Fläche' : 'Flächen'}</b><small>{mitGrenzen.length ? 'auf der Karte' : 'Grenzen folgen mit dem Zwilling'}</small></span>
           </a>
           <a href={`#/wald/baumarten`} className="k-salbei">
@@ -186,10 +194,26 @@ export function Uebersicht() {
             <svg width="64" height="56" viewBox="0 0 64 56" aria-hidden="true"><path d="M2 14 Q 18 4 32 14 T 62 14" fill="none" stroke="#141A16" strokeWidth="2.5" strokeLinecap="round" /><path d="M2 30 Q 18 20 32 30 T 62 30" fill="none" stroke="#141A16" strokeWidth="2.5" strokeLinecap="round" opacity=".6" /><path d="M2 46 Q 18 36 32 46 T 62 46" fill="none" stroke="#141A16" strokeWidth="2.5" strokeLinecap="round" opacity=".3" /></svg>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><b>Boden und Wasser</b><small>Was Ihr Standort kann</small></span>
           </a>
-          <a href="#/zukunft" className="k-bild">
-            <img src="bilder/stamm.webp" alt="" />
-            <span className="bildfuss"><b>Ihr Wald in 30 Jahren</b><small>Wege im Vergleich</small></span>
-          </a>
+          {wald.umbau ? (
+            <a href="#/plan" className="k-bild">
+              <img src="bilder/stamm.webp" alt="" />
+              <span className="bildfuss"><b>Ihr Plan für {wald.umbau.rechnung.horizont} Jahre</b><small>{wald.umbau.bestandName.split(' · ').at(-1)}: Dauerwald</small></span>
+            </a>
+          ) : (
+            <a href="#/zukunft" className="k-bild">
+              <img src="bilder/stamm.webp" alt="" />
+              <span className="bildfuss"><b>Ihr Wald in 30 Jahren</b><small>Wege im Vergleich</small></span>
+            </a>
+          )}
+          {(wald.fotos ?? []).filter((f) => f.bild).slice(0, 3).map((f) => {
+            const ziel = wald.bestaende.filter((b) => b.revier === f.revier).sort((a, b) => b.ha - a.ha)[0];
+            return (
+              <a key={f.ort} href={ziel ? `#/bestand/${ziel.id}` : '#/wald'} className="k-bild">
+                <img src={f.bild} alt="" />
+                <span className="bildfuss"><b>{f.ort}</b><small>Ihr Foto · {f.kurz.split(' — ')[0]}</small></span>
+              </a>
+            );
+          })}
           {wert && (
             <a href="#/vermoegen" className="k-rinde">
               <Icon n="chart" gross />

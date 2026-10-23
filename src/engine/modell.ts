@@ -98,10 +98,60 @@ export interface Bestand {
   hiebsreife?: string;
   befunde: Befund[];
   eignung: Eignung[];
-  boden?: { nfkMm?: number; text?: string };
+  boden?: { nfkMm?: number; text?: string; naehrstoff?: string; wasser?: string; grundwasser?: string; humus?: string };
   waldweg?: Waldweg;
   /** Für Beispieldaten: fiktiv */
   beispiel?: boolean;
+  /** Revier oder Waldort, zu dem die Fläche gehört */
+  revier?: string;
+  /** Standfestigkeit aus h/d-Wert und Kronenlänge */
+  stabilitaet?: { stufe: string; folge: string; hd?: number; kronePct?: number; kritisch: boolean };
+  /** Messung am Boden, auf der der Vorrat beruht */
+  messung?: { datum: string; verfahren: string; grundflaecheM2Ha?: number; erfassungsgradPct?: number };
+  /** Natürliche Waldgesellschaft (potenzielle natürliche Vegetation) */
+  naturnah?: string;
+  /** Standortgüte aus Boden und Oberhöhe */
+  standortguete?: string;
+  /** Schutzgebiete und Fachdaten, die die Fläche berühren */
+  schutz?: { titel: string; imFlurstueck: number; imUmkreis: number }[];
+  /** Was der Eigentümer selbst über die Fläche gesagt hat */
+  eigentuemer?: string;
+  /** Wuchssimulation je Behandlung: Vorrat über die Jahre */
+  simulation?: Simulation;
+}
+
+export interface Simulation {
+  modell: string;
+  jahre: number;
+  wege: { id: string; text: string; punkte: { jahr: number; vorrat: number; entnahmeKum: number }[] }[];
+}
+
+/** Ein Foto des Eigentümers, von den Waldgrafen ausgewertet */
+export interface Foto { ort: string; revier?: string; datum: string; bild?: string; kurz: string; befund: string[] }
+
+export interface Revier { id: string; nummer?: string; name: string; kurz?: string }
+
+/** Ein Gewerk mit den Kriterien, nach denen ein Unternehmer ausgewählt wird */
+export interface Gewerk { id: string; gewerk: string; wofuer: string; wann: string; kriterien: string[] }
+
+/** Ein gerechneter Umbauplan über Jahrzehnte (Waldgrafen-Umbaumodell) */
+export interface Umbauplan {
+  erstellt: string;
+  bestandName: string;
+  kurz?: string;
+  ha: number;
+  revier?: string;
+  ziel: { name: string; beschreibung: string };
+  korridor?: [number, number];
+  rechnung: { szenario: string; startjahr: number; horizont: number; laeufe: number; zinsPct: number };
+  heute: { vorrat: number; nadelPct: number };
+  kennzahlen: { kapitalwert: [number, number, number]; reinertragHaJahr: number; foerderung: number; endVorrat: number; endNadelPct: number; endBaumarten: number; kahlMaxHa: number; nvAnteilPct: number; co2SaldoTHa?: number };
+  strategien: { id: string; name: string; kurz: string; empfohlen: boolean; kapitalwert: [number, number, number]; grossschadenPct: number; endNadelPct: number; nutzwert: number; verletzt: string[] }[];
+  phasen: { id: string; name: string; von: number; bis: number; ziel: string }[];
+  massnahmen: { jahr: number; phase: string; kategorie: string; text: string; menge?: number; einheit?: string; erloes: number; kosten: number; foerderung: number }[];
+  jahrzehnte: { von: number; bis: number; efm: number; pflanzen: number; erloes: number; kosten: number; foerderung: number; cashflow: number; vorratEnde: number; nadelEnde: number }[];
+  verlauf: { jahr: number; vorrat: number; vorratP10?: number; nadelPct: number; art: Record<string, number> }[];
+  offen: { was: string; warum: string; dringlich: boolean }[];
 }
 
 export interface Ereignis {
@@ -140,6 +190,12 @@ export interface Profil {
   vorratMin?: number;
   vorratMax?: number;
   annahme: boolean;
+  /** Aus dem Eigentümergespräch */
+  gespraechAm?: string;
+  artenWunsch?: string[];
+  artenTabu?: string[];
+  fichteMax?: number;
+  einnahmen?: string;
 }
 
 export interface Wald {
@@ -163,6 +219,12 @@ export interface Wald {
   foerderBezug: Record<string, string>;
   kontakte: { name: string; art: string; notiz?: string }[];
   attribution?: string;
+  reviere?: Revier[];
+  fotos?: Foto[];
+  gewerke?: Gewerk[];
+  umbau?: Umbauplan;
+  /** Planungsrelevante Arten im Umfeld (Kartenblatt), nicht auf der Fläche selbst */
+  artenUmfeld?: { quelle: string; anzahl: number; wald: string[] };
 }
 
 export const ART_TEXT: Record<Artgruppe, string> = {

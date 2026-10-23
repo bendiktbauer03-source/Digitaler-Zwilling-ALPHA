@@ -105,7 +105,7 @@ export function Leiste({ eltern, mitte }: { eltern: string; mitte?: string }) {
 const TABS: [string, string, string, string[]][] = [
   ['', 'Übersicht', 'home', ['']],
   ['wald', 'Mein Wald', 'map', ['wald', 'bestand']],
-  ['planen', 'Planen', 'plan', ['planen', 'ernte', 'zukunft', 'messen', 'vermoegen']],
+  ['planen', 'Planen', 'plan', ['planen', 'plan', 'ernte', 'zukunft', 'messen', 'vermoegen']],
   ['aufgaben', 'Aufgaben', 'tasks', ['aufgaben', 'aufgabe', 'pruefen', 'chronik', 'entscheidungen']],
 ];
 
